@@ -3,39 +3,39 @@
 [![GitHub Pages](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?style=for-the-badge&logo=github)](https://candydaisy.github.io/TTFUI/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
-An intuitive, browser-based visual flow graph editor and interactive narrative design tool for **Untitled Illness**. Design dialogue trees, branching choices, conditional routing, scene staging, and audio triggers—all with instant playtesting and game-ready JSON export.
+An intuitive, browser-based visual flow graph editor and interactive narrative design tool for **Untitled Illness**. Design dialogue trees, branching choices, conditional routing, scene staging, and audio triggers with instant playtesting and game-ready JSON export.
 
-🌐 **Live Demo:** [https://candydaisy.github.io/TTFUI/](https://candydaisy.github.io/TTFUI/)
+**Live Demo:** [https://candydaisy.github.io/TTFUI/](https://candydaisy.github.io/TTFUI/)
 
 ---
 
-## ✨ Features
+## Features
 
-- 🕸️ **Visual Node Graph Editor**
+- **Visual Node Graph Editor**
   - Interactive canvas with smooth panning, zooming, and grid snapping.
   - Port-based visual connections for sequential dialogue, branch choices, and secret conditional paths.
   - Auto-layout button to organize complex narrative graphs cleanly.
   - Multi-touch gestures (two-finger pan, pinch-to-zoom).
 
-- 💬 **Rich Dialogue & Staging Controls**
-  - **Speaker & Emotions:** Configure character names, emotional tags, and sprite expressions (e.g., `K:tired`).
-  - **Scene & Audio Directing:** Set background scenery, character stage enter/exit cues, sound effects (`SFX`), and ambient loops (`Amb`).
-  - **Story Flags & Weights:** Track narrative state using custom story flags and numeric story weights (e.g., sanity, relationship meters).
+- **Rich Dialogue and Staging Controls**
+  - **Speaker and Emotions:** Configure character names, emotional tags, and sprite expressions (e.g., `K:tired`).
+  - **Scene and Audio Directing:** Set background scenery, character stage enter/exit cues, sound effects (`SFX`), and ambient loops (`Amb`).
+  - **Story Flags and Weights:** Track narrative state using custom story flags and numeric story weights (e.g., sanity, relationship meters).
 
-- 🔀 **Branching & Secret Routes**
+- **Branching and Secret Routes**
   - **Choice System:** Multiple player dialogue choices with customized reply types, weight changes, next node targets, and flag setters.
   - **Secret Conditions:** Conditional branching based on flag checks or weight thresholds (e.g., `weight_below`, `has_flag`) diverting the story to alternate routes.
 
-- ▶️ **Interactive Playtest Mode**
+- **Interactive Playtest Mode**
   - Test and experience your dialogue directly in the browser without launching a game engine.
   - Live HUD displaying real-time speaker names, emotion tags, weight changes, active flags, and scene staging cues.
   - Advance dialogue with `Space` or click interactive choice buttons.
 
-- 🔍 **Story Diagnostics & Linter**
+- **Story Diagnostics and Linter**
   - Automated graph analysis highlighting missing target nodes, orphan dialogue, dead ends, or broken conditions.
   - Filter by Errors, Warnings, and Info with one-click navigation to problem nodes.
 
-- 📦 **Import & Export (Game Engine Ready)**
+- **Import and Export (Game Engine Ready)**
   - Export clean `flow_graph` JSON data ready for integration with Godot or custom game engines.
   - Import existing `.json` files via drag-and-drop or file upload.
   - Built-in example story (`Load Example`) for quick demonstration.
@@ -43,13 +43,13 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 
 ---
 
-## 🎮 Controls & Shortcuts
+## Controls and Shortcuts
 
 | Action | Shortcut / Gesture |
 |---|---|
 | **Add Node** | Right-click canvas > *Add Node Here* or `+ Node` button |
 | **Search Nodes** | `Ctrl + F` (Search by speaker, dialogue, ID, flags) |
-| **Playtest Story** | `P` key or `▶ Play` button |
+| **Playtest Story** | `P` key or Play button |
 | **Advance Dialogue** | `Space` key in Playtest mode |
 | **Copy Node** | `Ctrl + C` |
 | **Paste Node** | `Ctrl + V` |
@@ -60,11 +60,11 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Run in the Browser (No Installation)
 Visit the deployed web application at:
-👉 **[https://candydaisy.github.io/TTFUI/](https://candydaisy.github.io/TTFUI/)**
+[https://candydaisy.github.io/TTFUI/](https://candydaisy.github.io/TTFUI/)
 
 ### Run Locally
 Since TTFUI is built using standard web technologies (vanilla HTML5, CSS3, and JavaScript), no build tools or package managers are required.
@@ -93,7 +93,7 @@ Since TTFUI is built using standard web technologies (vanilla HTML5, CSS3, and J
 
 ---
 
-## 📋 JSON Data Structure
+## JSON Data Structure
 
 The exported `flow_graph` JSON represents narrative nodes structured as follows:
 
@@ -131,7 +131,7 @@ The exported `flow_graph` JSON represents narrative nodes structured as follows:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 TTFUI/
@@ -144,6 +144,6 @@ TTFUI/
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
