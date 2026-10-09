@@ -53,6 +53,7 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 | **Box / Marquee Select** | Click & drag on canvas background |
 | **Toggle Multi-Select** | `Shift + Click` on node |
 | **Select All Nodes** | `Ctrl + A` |
+| **Export / Save As** | `Ctrl + S` or `Export JSON ↗` button |
 | **Search Nodes** | `Ctrl + F` (Search by speaker, dialogue, ID, flags) |
 | **Playtest Story** | `P` key or Play button |
 | **Advance Dialogue** | `Space` key in Playtest mode |

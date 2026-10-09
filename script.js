@@ -1775,37 +1775,55 @@ function closeModal() {
 // Lets the user pick exactly where the exported JSON is saved.
 // Uses the native "Save As" file picker where supported (Chrome/Edge),
 // and falls back to a normal browser download otherwise.
-async function saveCodeToFile(evt) {
+async function saveCodeToFile(evt, forceSaveAs = true) {
   const code = document.getElementById('output-code').value;
-  const suggestedName = 'flow_graph.json';
+  let filename = document.getElementById('export-filename') ? document.getElementById('export-filename').value.trim() : 'flow_graph.json';
+  if (!filename) filename = 'flow_graph.json';
+  if (!filename.toLowerCase().endsWith('.json')) filename += '.json';
   const btn = evt && evt.target;
 
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName,
-        types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }]
-      });
-      const writable = await handle.createWritable();
-      await writable.write(code);
-      await writable.close();
-      if (btn) { const orig = btn.textContent; btn.textContent = '✓ Saved!'; setTimeout(() => btn.textContent = orig, 1500); }
-      return;
-    } catch (err) {
-      if (err && err.name === 'AbortError') return; // user cancelled the picker
+  if (forceSaveAs) {
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON file (*.json)', accept: { 'application/json': ['.json'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(code);
+        await writable.close();
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = '✓ Saved!';
+          setTimeout(() => btn.textContent = orig, 1500);
+        }
+        showToast('Saved to ' + handle.name);
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled the picker
+        console.warn('showSaveFilePicker error:', err);
+      }
+    } else {
+      showToast('Browser directory picker not supported; downloading to default folder.');
     }
   }
 
-  // Fallback: trigger a normal download
+  // Fallback / standard download:
   const blob = new Blob([code], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = suggestedName;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Downloaded!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  }
+  showToast('Downloaded ' + filename);
 }
 
 function copyCode() {
@@ -2344,6 +2362,13 @@ window.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
     e.preventDefault();
     selectAllNodes();
+    return;
+  }
+
+  // Ctrl+S / Cmd+S -> Export / Save As
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    exportCode();
     return;
   }
 
