@@ -1765,6 +1765,14 @@ function exportCode() {
 
   const jsonStr = JSON.stringify(exportData, null, 2);
   document.getElementById('output-code').value = jsonStr;
+  const hintEl = document.getElementById('export-browser-hint');
+  if (hintEl) {
+    hintEl.style.display = (!window.showSaveFilePicker) ? 'block' : 'none';
+  }
+  const saveAsBtn = document.getElementById('modal-save-as-btn');
+  if (saveAsBtn && !window.showSaveFilePicker) {
+    saveAsBtn.title = "Downloads file. In Firefox, turn on 'Always ask you where to save files' in Settings to choose folders.";
+  }
   document.getElementById('modal-overlay').classList.add('active');
 }
 
@@ -1782,29 +1790,25 @@ async function saveCodeToFile(evt, forceSaveAs = true) {
   if (!filename.toLowerCase().endsWith('.json')) filename += '.json';
   const btn = evt && evt.target;
 
-  if (forceSaveAs) {
-    if (window.showSaveFilePicker) {
-      try {
-        const handle = await window.showSaveFilePicker({
-          suggestedName: filename,
-          types: [{ description: 'JSON file (*.json)', accept: { 'application/json': ['.json'] } }]
-        });
-        const writable = await handle.createWritable();
-        await writable.write(code);
-        await writable.close();
-        if (btn) {
-          const orig = btn.textContent;
-          btn.textContent = '✓ Saved!';
-          setTimeout(() => btn.textContent = orig, 1500);
-        }
-        showToast('Saved to ' + handle.name);
-        return;
-      } catch (err) {
-        if (err && err.name === 'AbortError') return; // user cancelled the picker
-        console.warn('showSaveFilePicker error:', err);
+  if (forceSaveAs && window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'JSON file (*.json)', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(code);
+      await writable.close();
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Saved!';
+        setTimeout(() => btn.textContent = orig, 1500);
       }
-    } else {
-      showToast('Browser directory picker not supported; downloading to default folder.');
+      showToast('Saved to ' + handle.name);
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // user cancelled the picker
+      console.warn('showSaveFilePicker error:', err);
     }
   }
 
@@ -1820,10 +1824,14 @@ async function saveCodeToFile(evt, forceSaveAs = true) {
   URL.revokeObjectURL(url);
   if (btn) {
     const orig = btn.textContent;
-    btn.textContent = '✓ Downloaded!';
+    btn.textContent = '✓ Saved!';
     setTimeout(() => btn.textContent = orig, 1500);
   }
-  showToast('Downloaded ' + filename);
+  if (!window.showSaveFilePicker) {
+    showToast(`Saved ${filename}. (Tip: Enable "Always ask where to save" in Firefox Settings)`);
+  } else {
+    showToast('Downloaded ' + filename);
+  }
 }
 
 function copyCode() {
