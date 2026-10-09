@@ -48,14 +48,19 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 | Action | Shortcut / Gesture |
 |---|---|
 | **Add Node** | Right-click canvas > *Add Node Here* or `+ Node` button |
+| **Undo** | `Ctrl + Z` (or `↶ Undo` button) |
+| **Redo** | `Ctrl + Y` / `Ctrl + Shift + Z` (or `↷ Redo` button) |
+| **Box / Marquee Select** | Click & drag on canvas background |
+| **Toggle Multi-Select** | `Shift + Click` on node |
+| **Select All Nodes** | `Ctrl + A` |
 | **Search Nodes** | `Ctrl + F` (Search by speaker, dialogue, ID, flags) |
 | **Playtest Story** | `P` key or Play button |
 | **Advance Dialogue** | `Space` key in Playtest mode |
-| **Copy Node** | `Ctrl + C` |
-| **Paste Node** | `Ctrl + V` |
-| **Duplicate Node** | `Ctrl + D` |
-| **Delete Node** | `Delete` / `Backspace` |
-| **Pan Canvas** | Left-click + Drag on background (or 2 fingers on touch) |
+| **Copy Node(s)** | `Ctrl + C` |
+| **Paste Node(s)** | `Ctrl + V` |
+| **Duplicate Node(s)** | `Ctrl + D` |
+| **Delete Node(s)** | `Delete` / `Backspace` |
+| **Pan Canvas** | Alt + Left-click Drag or Middle-click Drag (or 2 fingers on touch) |
 | **Zoom Canvas** | Mouse Wheel or Pinch-to-zoom |
 
 ---

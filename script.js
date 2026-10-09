@@ -3,16 +3,33 @@
 // ================================
 let nodes = {};
 let connections = []; // {from, fromPort, to}
-let selectedNode = null;
+let selectedNode = null; // primary / last selected node
+let selectedNodes = new Set(); // set of all selected node IDs
 let pan = { x: 60, y: 60 };
 let zoom = 1;
-let dragging = null; // {nodeId, ox, oy}
+let dragging = null; // {primaryId, startX, startY, startPositions, moved, shiftKey}
+let dragStartSnapshot = null;
 let panning = false;
 let panStart = {};
 let connecting = null; // {nodeId, port, sx, sy}
 let nextId = 1;
 let ctxTarget = null;
 let ctxPos = { x: 0, y: 0 };
+
+// History (Undo / Redo)
+let undoStack = [];
+let redoStack = [];
+const MAX_HISTORY = 50;
+let fieldFocusSnapshot = null;
+
+// Marquee / Box Selection
+let marqueeSelecting = false;
+let marqueeStart = null;
+let initialSelectedNodes = new Set();
+
+// Clipboard (Multi-Node Aware)
+let clipboardData = null; // { nodes: [...], connections: [...] }
+let clipboardNode = null; // single node fallback
 
 // ================================
 // INIT
@@ -23,10 +40,111 @@ window.addEventListener('DOMContentLoaded', () => {
   setupCanvasEvents();
   setupSearchEvents();
   setupImportEvents();
+  setupSidebarHistoryEvents();
   const restored = loadFromStorage();
   if (!restored) updateEmptyHint();
   runDiagnostics();
+  updateUndoRedoUI();
 });
+
+// ================================
+// UNDO / REDO SYSTEM
+// ================================
+function getSnapshot() {
+  return {
+    nodes: JSON.parse(JSON.stringify(nodes)),
+    connections: JSON.parse(JSON.stringify(connections)),
+    nextId: nextId,
+    selectedNodeIds: Array.from(selectedNodes)
+  };
+}
+
+function pushHistory() {
+  redoStack.length = 0;
+  undoStack.push(getSnapshot());
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  updateUndoRedoUI();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const currentSnapshot = getSnapshot();
+  redoStack.push(currentSnapshot);
+  const prevSnapshot = undoStack.pop();
+  applySnapshot(prevSnapshot);
+  showToast('Undo');
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  const currentSnapshot = getSnapshot();
+  undoStack.push(currentSnapshot);
+  const nextSnapshot = redoStack.pop();
+  applySnapshot(nextSnapshot);
+  showToast('Redo');
+}
+
+function updateUndoRedoUI() {
+  const uBtn = document.getElementById('undo-btn');
+  const rBtn = document.getElementById('redo-btn');
+  if (uBtn) uBtn.disabled = undoStack.length === 0;
+  if (rBtn) rBtn.disabled = redoStack.length === 0;
+}
+
+function applySnapshot(snapshot) {
+  document.getElementById('nodes-layer').innerHTML = '';
+  nodes = JSON.parse(JSON.stringify(snapshot.nodes || {}));
+  connections = JSON.parse(JSON.stringify(snapshot.connections || []));
+  nextId = snapshot.nextId || nextId;
+  selectedNodes = new Set(snapshot.selectedNodeIds || []);
+  selectedNode = selectedNodes.size > 0 ? Array.from(selectedNodes)[selectedNodes.size - 1] : null;
+
+  Object.keys(nodes).forEach(id => createNodeEl(id));
+  updateSelectionVisuals();
+  renderConnections();
+  renderSidebar();
+  updateEmptyHint();
+  runDiagnostics();
+  markDirty();
+  updateUndoRedoUI();
+}
+
+function setupSidebarHistoryEvents() {
+  const sidebar = document.getElementById('sidebar-content');
+  if (!sidebar) return;
+
+  sidebar.addEventListener('focusin', e => {
+    if (e.target.matches('input, textarea, select')) {
+      fieldFocusSnapshot = getSnapshot();
+    }
+  });
+
+  sidebar.addEventListener('focusout', e => {
+    if (e.target.matches('input, textarea, select') && fieldFocusSnapshot) {
+      const curr = getSnapshot();
+      if (JSON.stringify(curr.nodes) !== JSON.stringify(fieldFocusSnapshot.nodes)) {
+        redoStack.length = 0;
+        undoStack.push(fieldFocusSnapshot);
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        updateUndoRedoUI();
+      }
+      fieldFocusSnapshot = null;
+    }
+  });
+
+  sidebar.addEventListener('change', e => {
+    if (e.target.matches('select') && fieldFocusSnapshot) {
+      const curr = getSnapshot();
+      if (JSON.stringify(curr.nodes) !== JSON.stringify(fieldFocusSnapshot.nodes)) {
+        redoStack.length = 0;
+        undoStack.push(fieldFocusSnapshot);
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        updateUndoRedoUI();
+      }
+      fieldFocusSnapshot = getSnapshot();
+    }
+  });
+}
 
 // ================================
 // GRID
@@ -93,9 +211,22 @@ function setupCanvasEvents() {
       panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
       wrap.classList.add('panning');
       e.preventDefault();
-    }
-    if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('.port')) {
-      selectNode(null);
+    } else if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('.port')) {
+      if (!e.shiftKey) {
+        selectNode(null);
+      }
+      marqueeSelecting = true;
+      marqueeStart = { clientX: e.clientX, clientY: e.clientY };
+      initialSelectedNodes = new Set(selectedNodes);
+      const mBox = document.getElementById('selection-box');
+      if (mBox) {
+        const wrapRect = wrap.getBoundingClientRect();
+        mBox.style.left = (e.clientX - wrapRect.left) + 'px';
+        mBox.style.top = (e.clientY - wrapRect.top) + 'px';
+        mBox.style.width = '0px';
+        mBox.style.height = '0px';
+        mBox.style.display = 'block';
+      }
     }
     hideCtxMenu();
   });
@@ -107,15 +238,61 @@ function setupCanvasEvents() {
       applyTransform();
     }
     if (dragging) {
-      const wrap = document.getElementById('canvas-wrap');
-      const rect = wrap.getBoundingClientRect();
-      const x = (e.clientX - rect.left - pan.x) / zoom - dragging.ox;
-      const y = (e.clientY - rect.top - pan.y) / zoom - dragging.oy;
-      nodes[dragging.id].x = Math.max(0, x);
-      nodes[dragging.id].y = Math.max(0, y);
-      updateNodeEl(dragging.id);
+      const dx = (e.clientX - dragging.startX) / zoom;
+      const dy = (e.clientY - dragging.startY) / zoom;
+      if (Math.hypot(e.clientX - dragging.startX, e.clientY - dragging.startY) > 3) {
+        dragging.moved = true;
+      }
+      Object.keys(dragging.startPositions).forEach(nid => {
+        if (nodes[nid]) {
+          nodes[nid].x = Math.max(0, Math.round(dragging.startPositions[nid].x + dx));
+          nodes[nid].y = Math.max(0, Math.round(dragging.startPositions[nid].y + dy));
+          const el = document.getElementById('node-' + nid);
+          if (el) {
+            el.style.left = nodes[nid].x + 'px';
+            el.style.top = nodes[nid].y + 'px';
+          }
+        }
+      });
       renderConnections();
       markDirty();
+    }
+    if (marqueeSelecting && marqueeStart) {
+      const wrapRect = wrap.getBoundingClientRect();
+      const minX = Math.min(e.clientX, marqueeStart.clientX);
+      const maxX = Math.max(e.clientX, marqueeStart.clientX);
+      const minY = Math.min(e.clientY, marqueeStart.clientY);
+      const maxY = Math.max(e.clientY, marqueeStart.clientY);
+
+      const mBox = document.getElementById('selection-box');
+      if (mBox) {
+        mBox.style.left = (minX - wrapRect.left) + 'px';
+        mBox.style.top = (minY - wrapRect.top) + 'px';
+        mBox.style.width = (maxX - minX) + 'px';
+        mBox.style.height = (maxY - minY) + 'px';
+      }
+
+      // Calculate canvas bounds
+      const cLeft = (minX - wrapRect.left - pan.x) / zoom;
+      const cRight = (maxX - wrapRect.left - pan.x) / zoom;
+      const cTop = (minY - wrapRect.top - pan.y) / zoom;
+      const cBottom = (maxY - wrapRect.top - pan.y) / zoom;
+
+      const nextSelection = new Set(e.shiftKey ? initialSelectedNodes : []);
+      Object.keys(nodes).forEach(id => {
+        const n = nodes[id];
+        const el = document.getElementById('node-' + id);
+        const nw = el ? el.offsetWidth : 260;
+        const nh = el ? el.offsetHeight : 140;
+        const intersects = !(n.x > cRight || n.x + nw < cLeft || n.y > cBottom || n.y + nh < cTop);
+        if (intersects) {
+          nextSelection.add(id);
+        }
+      });
+
+      selectedNodes = nextSelection;
+      selectedNode = selectedNodes.size > 0 ? Array.from(selectedNodes)[selectedNodes.size - 1] : null;
+      updateSelectionVisuals();
     }
     if (connecting) {
       const svg = document.getElementById('temp-line');
@@ -131,8 +308,29 @@ function setupCanvasEvents() {
   });
 
   window.addEventListener('mouseup', e => {
-    if (panning) { panning = false; document.getElementById('canvas-wrap').classList.remove('panning'); }
-    if (dragging) { dragging = null; }
+    if (panning) {
+      panning = false;
+      document.getElementById('canvas-wrap').classList.remove('panning');
+    }
+    if (dragging) {
+      if (dragging.moved && dragStartSnapshot) {
+        redoStack.length = 0;
+        undoStack.push(dragStartSnapshot);
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        updateUndoRedoUI();
+      } else if (!dragging.moved && !dragging.shiftKey) {
+        selectNode(dragging.primaryId, false);
+      }
+      dragging = null;
+      dragStartSnapshot = null;
+    }
+    if (marqueeSelecting) {
+      marqueeSelecting = false;
+      marqueeStart = null;
+      const mBox = document.getElementById('selection-box');
+      if (mBox) mBox.style.display = 'none';
+      renderSidebar();
+    }
     if (connecting) {
       const svg = document.getElementById('temp-line');
       svg.style.width = '0'; svg.style.height = '0';
@@ -308,6 +506,7 @@ function setupCanvasEvents() {
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       const portEl = target && target.closest('.port');
       if (portEl && portEl.dataset.port === 'in' && portEl.dataset.node !== connecting.id) {
+        pushHistory();
         const toId = portEl.dataset.node;
         connections = connections.filter(c => !(c.from === connecting.id && c.fromPort === connecting.port));
         connections.push({ from: connecting.id, fromPort: connecting.port, to: toId });
@@ -347,6 +546,7 @@ function genId() {
 }
 
 function addNode(x, y) {
+  pushHistory();
   const wrap = document.getElementById('canvas-wrap');
   const rect = wrap.getBoundingClientRect();
   if (x === undefined) {
@@ -374,6 +574,69 @@ function addNode(x, y) {
   markDirty();
 }
 
+function attachNodeEvents(el, id) {
+  setupPorts(el, id);
+
+  const startDrag = (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+
+    if (e.shiftKey) {
+      selectNode(id, true);
+      return;
+    }
+
+    if (!selectedNodes.has(id)) {
+      selectNode(id, false);
+    }
+
+    const startPositions = {};
+    selectedNodes.forEach(nid => {
+      if (nodes[nid]) {
+        startPositions[nid] = { x: nodes[nid].x, y: nodes[nid].y };
+      }
+    });
+
+    dragStartSnapshot = getSnapshot();
+    dragging = {
+      primaryId: id,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPositions,
+      moved: false,
+      shiftKey: e.shiftKey
+    };
+  };
+
+  const header = el.querySelector('.node-header');
+  if (header) header.addEventListener('mousedown', startDrag);
+
+  el.addEventListener('mousedown', e => {
+    if (e.button === 0 && !e.target.closest('.port') && !e.target.closest('.node-header')) {
+      if (e.shiftKey) {
+        e.stopPropagation();
+        selectNode(id, true);
+      } else if (!selectedNodes.has(id)) {
+        e.stopPropagation();
+        selectNode(id, false);
+      }
+    }
+  });
+
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault(); e.stopPropagation();
+    if (!selectedNodes.has(id)) {
+      selectNode(id, false);
+    }
+    ctxTarget = id;
+    ctxPos = { x: e.clientX, y: e.clientY };
+    showCtxMenu(e.clientX, e.clientY, true);
+  });
+
+  if (selectedNodes.has(id)) el.classList.add('selected');
+  else el.classList.remove('selected');
+}
+
 function createNodeEl(id) {
   const n = nodes[id];
   const el = document.createElement('div');
@@ -384,35 +647,7 @@ function createNodeEl(id) {
 
   el.innerHTML = buildNodeHTML(id);
   document.getElementById('nodes-layer').appendChild(el);
-
-  // header drag
-  el.querySelector('.node-header').addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    selectNode(id);
-    const rect = el.getBoundingClientRect();
-    dragging = {
-      id,
-      ox: (e.clientX - rect.left) / zoom,
-      oy: (e.clientY - rect.top) / zoom
-    };
-  });
-
-  // click to select
-  el.addEventListener('mousedown', e => {
-    if (e.button === 0) { e.stopPropagation(); selectNode(id); }
-  });
-
-  // context menu on node
-  el.addEventListener('contextmenu', e => {
-    e.preventDefault(); e.stopPropagation();
-    ctxTarget = id;
-    ctxPos = { x: e.clientX, y: e.clientY };
-    showCtxMenu(e.clientX, e.clientY, true);
-  });
-
-  // ports
-  setupPorts(el, id);
+  attachNodeEvents(el, id);
 }
 
 function buildNodeHTML(id) {
@@ -525,23 +760,7 @@ function updateNodeEl(id) {
   el.style.left = n.x + 'px';
   el.style.top = n.y + 'px';
   el.innerHTML = buildNodeHTML(id);
-  setupPorts(el, id);
-
-  // re-attach events
-  el.querySelector('.node-header').addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    e.stopPropagation(); selectNode(id);
-    const rect = el.getBoundingClientRect();
-    dragging = { id, ox: (e.clientX - rect.left)/zoom, oy: (e.clientY - rect.top)/zoom };
-  });
-  el.addEventListener('mousedown', e => { if(e.button===0){e.stopPropagation();selectNode(id);} });
-  el.addEventListener('contextmenu', e => {
-    e.preventDefault(); e.stopPropagation();
-    ctxTarget = id; ctxPos = {x:e.clientX,y:e.clientY};
-    showCtxMenu(e.clientX, e.clientY, true);
-  });
-
-  if (selectedNode === id) el.classList.add('selected');
+  attachNodeEvents(el, id);
 }
 
 function setupPorts(el, id) {
@@ -549,8 +768,14 @@ function setupPorts(el, id) {
     port.addEventListener('mousedown', e => {
       e.stopPropagation();
       if (port.dataset.port === 'in') {
-        connections = connections.filter(c => !(c.to === id));
-        renderConnections();
+        const toDisconnect = connections.filter(c => c.to === id);
+        if (toDisconnect.length > 0) {
+          pushHistory();
+          connections = connections.filter(c => !(c.to === id));
+          renderConnections();
+          renderSidebar();
+          markDirty();
+        }
         return;
       }
       const rect = port.getBoundingClientRect();
@@ -564,6 +789,7 @@ function setupPorts(el, id) {
     port.addEventListener('mouseup', e => {
       e.stopPropagation();
       if (connecting && port.dataset.port === 'in' && connecting.id !== id) {
+        pushHistory();
         connections = connections.filter(c => !(c.from === connecting.id && c.fromPort === connecting.port));
         connections.push({ from: connecting.id, fromPort: connecting.port, to: id });
 
@@ -707,18 +933,81 @@ function renderConnections() {
 // ================================
 // SELECTION & SIDEBAR
 // ================================
-function selectNode(id) {
-  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
-  selectedNode = id;
-  if (id) {
-    const el = document.getElementById('node-' + id);
-    if (el) el.classList.add('selected');
+// ================================
+// SELECTION & SIDEBAR
+// ================================
+function updateSelectionVisuals() {
+  document.querySelectorAll('.node').forEach(el => {
+    const nid = el.id.replace('node-', '');
+    if (selectedNodes.has(nid)) el.classList.add('selected');
+    else el.classList.remove('selected');
+  });
+}
+
+function selectAllNodes() {
+  const ids = Object.keys(nodes);
+  if (ids.length === 0) return;
+  selectedNodes.clear();
+  ids.forEach(id => selectedNodes.add(id));
+  selectedNode = ids[ids.length - 1];
+  updateSelectionVisuals();
+  renderSidebar();
+}
+
+function selectNode(id, isMulti = false) {
+  if (id === null) {
+    selectedNodes.clear();
+    selectedNode = null;
+    updateSelectionVisuals();
+    renderSidebar();
+    return;
   }
+
+  if (isMulti) {
+    if (selectedNodes.has(id)) {
+      selectedNodes.delete(id);
+      selectedNode = selectedNodes.size > 0 ? Array.from(selectedNodes)[selectedNodes.size - 1] : null;
+    } else {
+      selectedNodes.add(id);
+      selectedNode = id;
+    }
+  } else {
+    selectedNodes.clear();
+    if (nodes[id]) {
+      selectedNodes.add(id);
+      selectedNode = id;
+    } else {
+      selectedNode = null;
+    }
+  }
+
+  updateSelectionVisuals();
   renderSidebar();
 }
 
 function renderSidebar() {
   const content = document.getElementById('sidebar-content');
+  if (!content) return;
+
+  if (selectedNodes.size > 1) {
+    content.innerHTML = `
+      <div style="padding: 4px 0 12px 0;">
+        <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px;">
+          ${selectedNodes.size} Nodes Selected
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">
+          Selected IDs: ${Array.from(selectedNodes).map(id => `<code style="background:var(--surface2);color:var(--text);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:10px;margin-right:4px;display:inline-block;margin-bottom:4px;">${id}</code>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" onclick="duplicateSelectedNodes()">⧉ Duplicate (${selectedNodes.size})</button>
+          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" onclick="copySelectedNodes()">📋 Copy (${selectedNodes.size})</button>
+        </div>
+        <button class="delete-node-btn" onclick="deleteSelectedNodes()">🗑 Delete Selected (${selectedNodes.size})</button>
+      </div>
+    `;
+    return;
+  }
+
   if (!selectedNode || !nodes[selectedNode]) {
     content.innerHTML = `<p style="color:var(--text-dim);font-size:12px;margin-top:8px">Select a node to edit it.</p>`;
     return;
@@ -895,6 +1184,7 @@ function saveFields() {
 
 function renameNode(oldId, newId) {
   if (nodes[newId]) { alert('ID "' + newId + '" already exists.'); return; }
+  pushHistory();
   nodes[newId] = { ...nodes[oldId], id: newId };
   delete nodes[oldId];
 
@@ -915,6 +1205,8 @@ function renameNode(oldId, newId) {
 
   const el = document.getElementById('node-' + oldId);
   if (el) { el.id = 'node-' + newId; }
+  selectedNodes.delete(oldId);
+  selectedNodes.add(newId);
   selectedNode = newId;
   updateNodeEl(newId);
   renderConnections();
@@ -922,7 +1214,8 @@ function renameNode(oldId, newId) {
 }
 
 function addChoice() {
-  if (!selectedNode) return;
+  if (!selectedNode || !nodes[selectedNode]) return;
+  pushHistory();
   nodes[selectedNode].choices.push({ text:'', type:'neutral', weight_change:0, next:'', set_flag:'' });
   renderSidebar();
   updateNodeEl(selectedNode);
@@ -930,7 +1223,8 @@ function addChoice() {
 }
 
 function removeChoice(i) {
-  if (!selectedNode) return;
+  if (!selectedNode || !nodes[selectedNode]) return;
+  pushHistory();
   nodes[selectedNode].choices.splice(i, 1);
   renderSidebar();
   updateNodeEl(selectedNode);
@@ -938,7 +1232,7 @@ function removeChoice(i) {
 }
 
 function updateChoice(i, key, val) {
-  if (!selectedNode) return;
+  if (!selectedNode || !nodes[selectedNode]) return;
   nodes[selectedNode].choices[i][key] = val;
   updateNodeEl(selectedNode);
   markDirty();
@@ -947,27 +1241,54 @@ function updateChoice(i, key, val) {
 // ================================
 // DELETE
 // ================================
+function deleteSelectedNodes() {
+  const ids = Array.from(selectedNodes);
+  if (ids.length === 0 && selectedNode) ids.push(selectedNode);
+  if (ids.length === 0) return;
+
+  pushHistory();
+  ids.forEach(id => {
+    const el = document.getElementById('node-' + id);
+    if (el) el.remove();
+    delete nodes[id];
+    connections = connections.filter(c => c.from !== id && c.to !== id);
+  });
+
+  selectedNodes.clear();
+  selectedNode = null;
+  renderConnections();
+  renderSidebar();
+  updateEmptyHint();
+  runDiagnostics();
+  markDirty();
+  showToast(`Deleted ${ids.length} node${ids.length > 1 ? 's' : ''}`);
+}
+
 function deleteSelectedNode() {
-  if (!selectedNode) return;
-  deleteNode(selectedNode);
+  deleteSelectedNodes();
 }
 
 function deleteNode(id) {
+  if (!id || !nodes[id]) return;
+  pushHistory();
   const el = document.getElementById('node-' + id);
   if (el) el.remove();
   delete nodes[id];
   connections = connections.filter(c => c.from !== id && c.to !== id);
-  if (selectedNode === id) selectedNode = null;
+  selectedNodes.delete(id);
+  if (selectedNode === id) {
+    selectedNode = selectedNodes.size > 0 ? Array.from(selectedNodes)[selectedNodes.size - 1] : null;
+  }
   renderConnections();
   renderSidebar();
   updateEmptyHint();
+  runDiagnostics();
   markDirty();
 }
+
 // ================================
 // CONTEXT MENU & CLIPBOARD
 // ================================
-let clipboardNode = null;
-
 function showToast(msg) {
   let toast = document.getElementById('toast');
   if (!toast) {
@@ -981,16 +1302,116 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 1500);
 }
 
+function copySelectedNodes() {
+  const ids = Array.from(selectedNodes);
+  if (ids.length === 0 && selectedNode) ids.push(selectedNode);
+  if (ids.length === 0) return;
+
+  const copiedNodes = ids.map(id => JSON.parse(JSON.stringify(nodes[id])));
+  const idSet = new Set(ids);
+  const copiedConns = connections
+    .filter(c => idSet.has(c.from) && idSet.has(c.to))
+    .map(c => ({ ...c }));
+
+  clipboardData = { nodes: copiedNodes, connections: copiedConns };
+  clipboardNode = copiedNodes[0];
+  const pasteItem = document.getElementById('ctx-paste');
+  if (pasteItem) pasteItem.style.display = 'block';
+
+  showToast(`Copied ${copiedNodes.length} node${copiedNodes.length > 1 ? 's' : ''}`);
+}
+
 function copyNode(id) {
   const targetId = id || selectedNode;
   if (!targetId || !nodes[targetId]) return;
+  if (selectedNodes.size > 1 && selectedNodes.has(targetId)) {
+    copySelectedNodes();
+    return;
+  }
   clipboardNode = JSON.parse(JSON.stringify(nodes[targetId]));
+  clipboardData = { nodes: [clipboardNode], connections: [] };
+  const pasteItem = document.getElementById('ctx-paste');
+  if (pasteItem) pasteItem.style.display = 'block';
   showToast('Copied node ' + targetId);
+}
+
+function duplicateSelectedNodes() {
+  const ids = Array.from(selectedNodes);
+  if (ids.length === 0 && selectedNode) ids.push(selectedNode);
+  if (ids.length === 0) return;
+
+  pushHistory();
+
+  const idMap = {};
+  ids.forEach(id => {
+    idMap[id] = genId();
+  });
+
+  const newIds = [];
+  ids.forEach(id => {
+    const src = nodes[id];
+    if (!src) return;
+    const newId = idMap[id];
+    newIds.push(newId);
+
+    const newNode = JSON.parse(JSON.stringify(src));
+    newNode.id = newId;
+    newNode.x = src.x + 40;
+    newNode.y = src.y + 40;
+
+    if (newNode.next && idMap[newNode.next]) newNode.next = idMap[newNode.next];
+    else newNode.next = '';
+
+    if (newNode.secret && newNode.secret.next && idMap[newNode.secret.next]) {
+      newNode.secret.next = idMap[newNode.secret.next];
+    } else if (newNode.secret) {
+      newNode.secret.next = '';
+    }
+
+    if (newNode.choices) {
+      newNode.choices.forEach(c => {
+        if (c.next && idMap[c.next]) c.next = idMap[c.next];
+        else c.next = '';
+      });
+    }
+
+    nodes[newId] = newNode;
+    createNodeEl(newId);
+  });
+
+  // Duplicate connections between duplicated nodes
+  const idSet = new Set(ids);
+  connections.forEach(c => {
+    if (idSet.has(c.from) && idSet.has(c.to) && idMap[c.from] && idMap[c.to]) {
+      connections.push({
+        from: idMap[c.from],
+        fromPort: c.fromPort,
+        to: idMap[c.to]
+      });
+    }
+  });
+
+  selectedNodes.clear();
+  newIds.forEach(id => selectedNodes.add(id));
+  selectedNode = newIds[newIds.length - 1];
+
+  updateSelectionVisuals();
+  renderConnections();
+  renderSidebar();
+  updateEmptyHint();
+  runDiagnostics();
+  markDirty();
+  showToast(`Duplicated ${newIds.length} node${newIds.length > 1 ? 's' : ''}`);
 }
 
 function duplicateNode(id) {
   const targetId = id || selectedNode;
   if (!targetId || !nodes[targetId]) return;
+  if (selectedNodes.size > 1 && selectedNodes.has(targetId)) {
+    duplicateSelectedNodes();
+    return;
+  }
+  pushHistory();
   const src = nodes[targetId];
   const newId = genId();
 
@@ -1007,47 +1428,99 @@ function duplicateNode(id) {
   selectNode(newId);
   renderConnections();
   updateEmptyHint();
+  runDiagnostics();
   markDirty();
   showToast('Duplicated to node ' + newId);
 }
 
 function pasteNode(screenX, screenY) {
-  if (!clipboardNode) return;
-  const newId = genId();
-  const wrap = document.getElementById('canvas-wrap');
-  const rect = wrap.getBoundingClientRect();
-
-  let targetX, targetY;
-  if (screenX !== undefined && screenY !== undefined) {
-    targetX = (screenX - rect.left - pan.x) / zoom;
-    targetY = (screenY - rect.top - pan.y) / zoom;
-  } else {
-    if (clipboardNode.x !== undefined && clipboardNode.y !== undefined) {
-      clipboardNode.x += 30;
-      clipboardNode.y += 30;
-      targetX = clipboardNode.x;
-      targetY = clipboardNode.y;
+  if (!clipboardData || !clipboardData.nodes || clipboardData.nodes.length === 0) {
+    if (clipboardNode) {
+      clipboardData = { nodes: [clipboardNode], connections: [] };
     } else {
-      targetX = (rect.width / 2 - pan.x) / zoom;
-      targetY = (rect.height / 2 - pan.y) / zoom;
+      return;
     }
   }
 
-  const newNode = JSON.parse(JSON.stringify(clipboardNode));
-  newNode.id = newId;
-  newNode.x = Math.max(0, targetX);
-  newNode.y = Math.max(0, targetY);
-  newNode.next = '';
-  if (newNode.secret) newNode.secret.next = '';
-  if (newNode.choices) newNode.choices.forEach(c => c.next = '');
+  pushHistory();
 
-  nodes[newId] = newNode;
-  createNodeEl(newId);
-  selectNode(newId);
+  const wrap = document.getElementById('canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+
+  let minX = Infinity, minY = Infinity;
+  clipboardData.nodes.forEach(n => {
+    if (n.x < minX) minX = n.x;
+    if (n.y < minY) minY = n.y;
+  });
+
+  let targetBaseX, targetBaseY;
+  if (screenX !== undefined && screenY !== undefined) {
+    targetBaseX = (screenX - rect.left - pan.x) / zoom;
+    targetBaseY = (screenY - rect.top - pan.y) / zoom;
+  } else {
+    targetBaseX = minX + 40;
+    targetBaseY = minY + 40;
+  }
+  const offsetX = targetBaseX - minX;
+  const offsetY = targetBaseY - minY;
+
+  const idMap = {};
+  clipboardData.nodes.forEach(src => {
+    idMap[src.id] = genId();
+  });
+
+  const newIds = [];
+  clipboardData.nodes.forEach(src => {
+    const newId = idMap[src.id];
+    newIds.push(newId);
+    const newNode = JSON.parse(JSON.stringify(src));
+    newNode.id = newId;
+    newNode.x = Math.max(0, Math.round(src.x + offsetX));
+    newNode.y = Math.max(0, Math.round(src.y + offsetY));
+
+    if (newNode.next && idMap[newNode.next]) newNode.next = idMap[newNode.next];
+    else newNode.next = '';
+
+    if (newNode.secret && newNode.secret.next && idMap[newNode.secret.next]) {
+      newNode.secret.next = idMap[newNode.secret.next];
+    } else if (newNode.secret) {
+      newNode.secret.next = '';
+    }
+
+    if (newNode.choices) {
+      newNode.choices.forEach(c => {
+        if (c.next && idMap[c.next]) c.next = idMap[c.next];
+        else c.next = '';
+      });
+    }
+
+    nodes[newId] = newNode;
+    createNodeEl(newId);
+  });
+
+  if (clipboardData.connections) {
+    clipboardData.connections.forEach(c => {
+      if (idMap[c.from] && idMap[c.to]) {
+        connections.push({
+          from: idMap[c.from],
+          fromPort: c.fromPort,
+          to: idMap[c.to]
+        });
+      }
+    });
+  }
+
+  selectedNodes.clear();
+  newIds.forEach(id => selectedNodes.add(id));
+  selectedNode = newIds[newIds.length - 1];
+
+  updateSelectionVisuals();
   renderConnections();
+  renderSidebar();
   updateEmptyHint();
+  runDiagnostics();
   markDirty();
-  showToast('Pasted node ' + newId);
+  showToast(`Pasted ${newIds.length} node${newIds.length > 1 ? 's' : ''}`);
 }
 
 function showCtxMenu(x, y, hasNode) {
@@ -1058,18 +1531,60 @@ function showCtxMenu(x, y, hasNode) {
   const nodeOnlyItems = menu.querySelectorAll('.node-only');
   nodeOnlyItems.forEach(el => el.style.display = hasNode ? 'block' : 'none');
 
+  const count = selectedNodes.size;
+  const dupItem = menu.querySelector('[onclick="ctxDuplicateNode()"]');
+  const copyItem = menu.querySelector('[onclick="ctxCopyNode()"]');
+  const delItem = menu.querySelector('[onclick="ctxDeleteNode()"]');
+
+  if (count > 1) {
+    if (dupItem) dupItem.textContent = `⧉ Duplicate (${count}) (Ctrl+D)`;
+    if (copyItem) copyItem.textContent = `📋 Copy (${count}) (Ctrl+C)`;
+    if (delItem) delItem.textContent = `🗑 Delete (${count}) (Del)`;
+  } else {
+    if (dupItem) dupItem.textContent = '⧉ Duplicate (Ctrl+D)';
+    if (copyItem) copyItem.textContent = '📋 Copy Node (Ctrl+C)';
+    if (delItem) delItem.textContent = '🗑 Delete Node (Del)';
+  }
+
   const pasteItem = document.getElementById('ctx-paste');
   if (pasteItem) {
-    pasteItem.style.display = clipboardNode ? 'block' : 'none';
+    pasteItem.style.display = (clipboardData && clipboardData.nodes && clipboardData.nodes.length > 0) || clipboardNode ? 'block' : 'none';
   }
 }
 
 function hideCtxMenu() { document.getElementById('ctx-menu').classList.remove('active'); }
 function ctxAddNode() { hideCtxMenu(); addNode(ctxPos.x, ctxPos.y); }
-function ctxDeleteNode() { hideCtxMenu(); if(ctxTarget) deleteNode(ctxTarget); }
+function ctxDeleteNode() {
+  hideCtxMenu();
+  if (selectedNodes.size > 1 && ctxTarget && selectedNodes.has(ctxTarget)) {
+    deleteSelectedNodes();
+  } else if (ctxTarget) {
+    deleteNode(ctxTarget);
+  } else if (selectedNodes.size > 0) {
+    deleteSelectedNodes();
+  }
+}
 function ctxPlayNode() { hideCtxMenu(); if(ctxTarget) openPlaytest(ctxTarget); else if(selectedNode) openPlaytest(selectedNode); }
-function ctxCopyNode() { hideCtxMenu(); if(ctxTarget) copyNode(ctxTarget); else if(selectedNode) copyNode(selectedNode); }
-function ctxDuplicateNode() { hideCtxMenu(); if(ctxTarget) duplicateNode(ctxTarget); else if(selectedNode) duplicateNode(selectedNode); }
+function ctxCopyNode() {
+  hideCtxMenu();
+  if (selectedNodes.size > 1 && ctxTarget && selectedNodes.has(ctxTarget)) {
+    copySelectedNodes();
+  } else if (ctxTarget) {
+    copyNode(ctxTarget);
+  } else if (selectedNodes.size > 0) {
+    copySelectedNodes();
+  }
+}
+function ctxDuplicateNode() {
+  hideCtxMenu();
+  if (selectedNodes.size > 1 && ctxTarget && selectedNodes.has(ctxTarget)) {
+    duplicateSelectedNodes();
+  } else if (ctxTarget) {
+    duplicateNode(ctxTarget);
+  } else if (selectedNodes.size > 0) {
+    duplicateSelectedNodes();
+  }
+}
 function ctxPasteNode() { hideCtxMenu(); pasteNode(ctxPos.x, ctxPos.y); }
 
 // ================================
@@ -1084,8 +1599,9 @@ function updateEmptyHint() {
 // ================================
 function clearAll() {
   if (!confirm('Clear everything? This will also clear the auto-save.')) return;
+  pushHistory();
   document.getElementById('nodes-layer').innerHTML = '';
-  nodes = {}; connections = []; selectedNode = null; nextId = 1;
+  nodes = {}; connections = []; selectedNodes.clear(); selectedNode = null; nextId = 1;
   renderConnections(); renderSidebar(); updateEmptyHint();
   clearSave();
 }
@@ -1097,6 +1613,7 @@ function autoLayout() {
   // simple left-to-right topological layout
   const ids = Object.keys(nodes);
   if (!ids.length) return;
+  pushHistory();
 
   const levels = {};
   const visited = new Set();
@@ -1348,6 +1865,11 @@ function loadFromStorage() {
     nextId = data.nextId || 1;
 
     document.getElementById('nodes-layer').innerHTML = '';
+    undoStack = [];
+    redoStack = [];
+    selectedNodes.clear();
+    selectedNode = null;
+    updateUndoRedoUI();
     Object.keys(nodes).forEach(id => createNodeEl(id));
     applyTransform();
     renderConnections();
@@ -1469,9 +1991,11 @@ function runImport() {
 
     const parsed = JSON.parse(body);
 
+    pushHistory();
+
     // clear current canvas
     document.getElementById('nodes-layer').innerHTML = '';
-    nodes = {}; connections = []; selectedNode = null; nextId = 1;
+    nodes = {}; connections = []; selectedNodes.clear(); selectedNode = null; nextId = 1;
 
     // build internal node objects from parsed data
     let maxNumericId = 0;
@@ -1636,12 +2160,15 @@ function loadShareCode() {
 }
 
 function applyShareData(data) {
+  pushHistory();
   document.getElementById('nodes-layer').innerHTML = '';
   nodes = data.nodes || {};
   connections = data.connections || [];
   nextId = data.nextId || 1;
+  selectedNodes.clear();
   selectedNode = null;
   Object.keys(nodes).forEach(id => createNodeEl(id));
+  updateSelectionVisuals();
   renderConnections();
   renderSidebar();
   updateEmptyHint();
@@ -1799,6 +2326,27 @@ window.addEventListener('keydown', e => {
     return;
   }
 
+  // Ctrl+Z / Cmd+Z -> Undo
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    undo();
+    return;
+  }
+
+  // Ctrl+Y / Cmd+Y OR Ctrl+Shift+Z / Cmd+Shift+Z -> Redo
+  if ((e.ctrlKey || e.metaKey) && ((e.key === 'y' || e.key === 'Y') || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) {
+    e.preventDefault();
+    redo();
+    return;
+  }
+
+  // Ctrl+A / Cmd+A -> Select all nodes
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+    e.preventDefault();
+    selectAllNodes();
+    return;
+  }
+
   // Ctrl+F / Cmd+F -> Search
   if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
@@ -1821,37 +2369,37 @@ window.addEventListener('keydown', e => {
     return;
   }
 
-  // Ctrl+C / Cmd+C -> Copy selected node
+  // Ctrl+C / Cmd+C -> Copy selected node(s)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
-    if (selectedNode) {
+    if (selectedNodes.size > 0 || selectedNode) {
       e.preventDefault();
-      copyNode(selectedNode);
+      copySelectedNodes();
     }
     return;
   }
 
-  // Ctrl+V / Cmd+V -> Paste copied node
+  // Ctrl+V / Cmd+V -> Paste copied node(s)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
-    if (clipboardNode) {
+    if ((clipboardData && clipboardData.nodes && clipboardData.nodes.length > 0) || clipboardNode) {
       e.preventDefault();
       pasteNode();
     }
     return;
   }
 
-  // Ctrl+D / Cmd+D -> Duplicate selected node (prevent browser bookmark!)
+  // Ctrl+D / Cmd+D -> Duplicate selected node(s)
   if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
-    if (selectedNode) {
+    if (selectedNodes.size > 0 || selectedNode) {
       e.preventDefault();
-      duplicateNode(selectedNode);
+      duplicateSelectedNodes();
     }
     return;
   }
 
-  // Delete / Backspace -> Delete selected node
-  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNode) {
+  // Delete / Backspace -> Delete selected node(s)
+  if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedNodes.size > 0 || selectedNode)) {
     e.preventDefault();
-    deleteSelectedNode();
+    deleteSelectedNodes();
     return;
   }
 });

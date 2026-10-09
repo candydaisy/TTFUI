@@ -13,6 +13,8 @@
   <div class="logo">⬡ FLOW</div>
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="addNode()">+ Node</button>
+  <button class="tb-btn" id="undo-btn" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+  <button class="tb-btn" id="redo-btn" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
   <button class="tb-btn" onclick="autoLayout()">Auto Layout</button>
   <button class="tb-btn" onclick="openSearch()" title="Search nodes (Ctrl+F)">🔍 Search</button>
   <div class="tb-sep"></div>
@@ -41,6 +43,7 @@
 
   <!-- CANVAS -->
   <div id="canvas-wrap">
+    <div id="selection-box" style="display:none;"></div>
     <svg id="grid-svg"></svg>
     <div id="canvas">
       <svg id="connections-svg"></svg>

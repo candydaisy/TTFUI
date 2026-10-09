@@ -72,6 +72,11 @@
   .tb-btn.danger:hover { background: var(--danger); color: #fff; }
   .tb-btn.success { background: var(--success); color: #fff; }
   .tb-btn.success:hover { background: #1a8a49; }
+  .tb-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
 
   .tb-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
 
@@ -96,6 +101,15 @@
     position: relative;
     overflow: hidden;
     cursor: default;
+  }
+
+  #selection-box {
+    position: absolute;
+    border: 1px dashed var(--accent);
+    background: rgba(88, 101, 242, 0.16);
+    pointer-events: none;
+    z-index: 50;
+    border-radius: 3px;
   }
 
   #canvas-wrap.panning { cursor: grabbing; }
