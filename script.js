@@ -32,6 +32,27 @@ let clipboardData = null; // { nodes: [...], connections: [...] }
 let clipboardNode = null; // single node fallback
 
 // ================================
+// HTML ESCAPING
+// ================================
+// All user-supplied strings (node text, speakers, flags, IDs...) must go through
+// escapeHTML before being placed in an innerHTML template, since graphs can be
+// loaded from untrusted share links / imported files.
+function escapeHTML(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Safely embed a value as a JS string literal inside an inline handler attribute,
+// e.g. onclick="fn(${jsArg(id)})"
+function jsArg(val) {
+  return escapeHTML(JSON.stringify(String(val ?? '')));
+}
+
+// ================================
 // INIT
 // ================================
 window.addEventListener('DOMContentLoaded', () => {
@@ -652,7 +673,7 @@ function createNodeEl(id) {
 
 function buildNodeHTML(id) {
   const n = nodes[id];
-  const emotionBadge = n.emotion ? `<span class="node-emotion-badge emotion-${n.emotion}">${n.emotion}</span>` : '';
+  const emotionBadge = n.emotion ? `<span class="node-emotion-badge emotion-${escapeHTML(n.emotion)}">${escapeHTML(n.emotion)}</span>` : '';
 
   // ---- detail rows ----
   let detailRows = '';
@@ -660,26 +681,26 @@ function buildNodeHTML(id) {
   if (n.background)
     detailRows += `<div class="node-detail-row">
       <span class="node-detail-label" style="color:var(--success);">bg</span>
-      <span class="node-detail-value" style="color:var(--success);">${n.background}</span>
+      <span class="node-detail-value" style="color:var(--success);">${escapeHTML(n.background)}</span>
     </div>`;
 
   if (n.sfx)
     detailRows += `<div class="node-detail-row">
       <span class="node-detail-label" style="color:var(--warning);">sfx</span>
-      <span class="node-detail-value" style="color:var(--warning);">▶ ${n.sfx}</span>
+      <span class="node-detail-value" style="color:var(--warning);">▶ ${escapeHTML(n.sfx)}</span>
     </div>`;
 
   if (n.amb)
     detailRows += `<div class="node-detail-row">
       <span class="node-detail-label" style="color:var(--info);">amb</span>
-      <span class="node-detail-value" style="color:var(--info);">~ ${n.amb}</span>
+      <span class="node-detail-value" style="color:var(--info);">~ ${escapeHTML(n.amb)}</span>
     </div>`;
 
   if (n.showChars) {
     const chars = n.showChars.split(',').map(s => s.trim()).filter(Boolean);
     detailRows += `<div class="node-detail-row">
       <span class="node-detail-label" style="color:var(--success);">show</span>
-      <span class="node-detail-value" style="color:var(--success);">${chars.join(', ')}</span>
+      <span class="node-detail-value" style="color:var(--success);">${escapeHTML(chars.join(', '))}</span>
     </div>`;
   }
 
@@ -687,7 +708,7 @@ function buildNodeHTML(id) {
     const chars = n.hideChars.split(',').map(s => s.trim()).filter(Boolean);
     detailRows += `<div class="node-detail-row">
       <span class="node-detail-label" style="color:var(--danger);">hide</span>
-      <span class="node-detail-value" style="color:var(--danger);">${chars.join(', ')}</span>
+      <span class="node-detail-value" style="color:var(--danger);">${escapeHTML(chars.join(', '))}</span>
     </div>`;
   }
 
@@ -698,14 +719,14 @@ function buildNodeHTML(id) {
       const [char, anim] = pair.split(':').map(s => s.trim());
       detailRows += `<div class="node-detail-row">
         <span class="node-detail-label" style="color:var(--accent-light);">anim</span>
-        <span class="node-detail-value" style="color:var(--accent-light);">${char}${anim ? ' → ' + anim : ''}</span>
+        <span class="node-detail-value" style="color:var(--accent-light);">${escapeHTML(char)}${anim ? ' → ' + escapeHTML(anim) : ''}</span>
       </div>`;
     });
   }
 
   // ---- secret badge ----
   const secretBadge = (n.secret && n.secret.condition)
-    ? `<span class="tag tag-secret">secret: ${n.secret.condition}${n.secret.flag ? ' ' + n.secret.flag : ''}${n.secret.value ? ' ' + n.secret.value : ''}</span>`
+    ? `<span class="tag tag-secret">secret: ${escapeHTML(n.secret.condition)}${n.secret.flag ? ' ' + escapeHTML(n.secret.flag) : ''}${n.secret.value ? ' ' + escapeHTML(n.secret.value) : ''}</span>`
     : '';
 
   // ---- choices badge ----
@@ -723,10 +744,10 @@ function buildNodeHTML(id) {
       const py = 52 + i * 22;
       choiceRowsHTML += `<div class="node-choice-row" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-right:14px;">
         <span style="font-size:9px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
-        <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.text || '...'}</span>
-        ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">⚑${c.set_flag}</span>` : ''}
+        <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.text || '...')}</span>
+        ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">⚑${escapeHTML(c.set_flag)}</span>` : ''}
       </div>`;
-      choicePortsHTML += `<div class="port out choice-port" data-node="${id}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${c.text || ''}"></div>`;
+      choicePortsHTML += `<div class="port out choice-port" data-node="${escapeHTML(id)}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${escapeHTML(c.text)}"></div>`;
     });
   }
 
@@ -736,20 +757,20 @@ function buildNodeHTML(id) {
 
   return `
     <div class="node-header">
-      <span class="node-id">${n.id}</span>
-      <span class="node-speaker">${n.speaker || '<narrator>'}</span>
+      <span class="node-id">${escapeHTML(n.id)}</span>
+      <span class="node-speaker">${escapeHTML(n.speaker || '<narrator>')}</span>
       ${emotionBadge}
     </div>
     <div class="node-body">
-      <div class="node-text">${n.text || ''}</div>
+      <div class="node-text">${escapeHTML(n.text)}</div>
       ${detailRows ? `<div style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.05);">${detailRows}</div>` : ''}
       ${choiceRowsHTML}
       ${tagsHTML}
     </div>
-    <div class="port in" data-node="${id}" data-port="in" style="top:${portY}px" title="Input"></div>
-    ${!hasChoices ? `<div class="port out" data-node="${id}" data-port="out" style="top:${portY}px" title="Next"></div>` : ''}
+    <div class="port in" data-node="${escapeHTML(id)}" data-port="in" style="top:${portY}px" title="Input"></div>
+    ${!hasChoices ? `<div class="port out" data-node="${escapeHTML(id)}" data-port="out" style="top:${portY}px" title="Next"></div>` : ''}
     ${choicePortsHTML}
-    ${n.secret && n.secret.condition ? `<div class="port secret-out" data-node="${id}" data-port="secret" style="top:${portY+22}px" title="Secret route"></div>` : ''}
+    ${n.secret && n.secret.condition ? `<div class="port secret-out" data-node="${escapeHTML(id)}" data-port="secret" style="top:${portY+22}px" title="Secret route"></div>` : ''}
   `;
 }
 
@@ -900,7 +921,7 @@ function renderConnections() {
         const ly = my - 6;
         html += `<text x="${lx}" y="${ly}" text-anchor="middle"
           font-family="var(--font-mono)" font-size="9" fill="${color}" opacity="0.8"
-          style="pointer-events:none;">⚑ ${flagName}</text>`;
+          style="pointer-events:none;">⚑ ${escapeHTML(flagName)}</text>`;
       });
     });
     // orphan setters (no readers yet): small badge on the node
@@ -996,7 +1017,7 @@ function renderSidebar() {
           ${selectedNodes.size} Nodes Selected
         </div>
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">
-          Selected IDs: ${Array.from(selectedNodes).map(id => `<code style="background:var(--surface2);color:var(--text);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:10px;margin-right:4px;display:inline-block;margin-bottom:4px;">${id}</code>`).join('')}
+          Selected IDs: ${Array.from(selectedNodes).map(id => `<code style="background:var(--surface2);color:var(--text);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:10px;margin-right:4px;display:inline-block;margin-bottom:4px;">${escapeHTML(id)}</code>`).join('')}
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;">
           <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" onclick="duplicateSelectedNodes()">⧉ Duplicate (${selectedNodes.size})</button>
@@ -1021,11 +1042,11 @@ function renderSidebar() {
     </div>
     <div class="field-group">
       <div class="field-label">Node ID</div>
-      <input class="field-input" id="f-id" value="${n.id}" placeholder="e.g. 1, secret_1">
+      <input class="field-input" id="f-id" value="${escapeHTML(n.id)}" placeholder="e.g. 1, secret_1">
     </div>
     <div class="field-group">
       <div class="field-label">Speaker</div>
-      <input class="field-input" id="f-speaker" value="${n.speaker}" placeholder="K, Friend, (empty for narrator)">
+      <input class="field-input" id="f-speaker" value="${escapeHTML(n.speaker)}" placeholder="K, Friend, (empty for narrator)">
     </div>
     <div class="field-group">
       <div class="field-label">Emotion</div>
@@ -1039,35 +1060,35 @@ function renderSidebar() {
     </div>
     <div class="field-group">
       <div class="field-label">Dialog Text</div>
-      <textarea class="field-input" id="f-text" rows="3" placeholder="What the character says...">${n.text}</textarea>
+      <textarea class="field-input" id="f-text" rows="3" placeholder="What the character says...">${escapeHTML(n.text)}</textarea>
     </div>
 
     <div class="field-section">Visuals</div>
     <div class="field-group">
       <div class="field-label">Background (node name)</div>
-      <input class="field-input" id="f-bg" value="${n.background}" placeholder="bedroom, school...">
+      <input class="field-input" id="f-bg" value="${escapeHTML(n.background)}" placeholder="bedroom, school...">
     </div>
     <div class="field-group">
       <div class="field-label">Show Characters (comma separated)</div>
-      <input class="field-input" id="f-show" value="${n.showChars}" placeholder="K, Friend">
+      <input class="field-input" id="f-show" value="${escapeHTML(n.showChars)}" placeholder="K, Friend">
     </div>
     <div class="field-group">
       <div class="field-label">Hide Characters (comma separated)</div>
-      <input class="field-input" id="f-hide" value="${n.hideChars}" placeholder="K, Friend">
+      <input class="field-input" id="f-hide" value="${escapeHTML(n.hideChars)}" placeholder="K, Friend">
     </div>
     <div class="field-group">
       <div class="field-label">Expressions (CharName:anim, ...)</div>
-      <input class="field-input" id="f-expr" value="${n.expression}" placeholder="K:angry, Friend:smile">
+      <input class="field-input" id="f-expr" value="${escapeHTML(n.expression)}" placeholder="K:angry, Friend:smile">
     </div>
 
     <div class="field-section">Audio</div>
     <div class="field-group">
       <div class="field-label">SFX (one-shot)</div>
-      <input class="field-input" id="f-sfx" value="${n.sfx}" placeholder="alarm, door...">
+      <input class="field-input" id="f-sfx" value="${escapeHTML(n.sfx)}" placeholder="alarm, door...">
     </div>
     <div class="field-group">
       <div class="field-label">Ambience (looping)</div>
-      <input class="field-input" id="f-amb" value="${n.amb}" placeholder="bedroom, school...">
+      <input class="field-input" id="f-amb" value="${escapeHTML(n.amb)}" placeholder="bedroom, school...">
     </div>
 
     <div class="field-section">Secret Route</div>
@@ -1083,15 +1104,15 @@ function renderSidebar() {
     </div>
     <div class="field-group">
       <div class="field-label">Value (for weight conditions)</div>
-      <input class="field-input" id="f-secret-val" value="${n.secret.value}" placeholder="e.g. 20">
+      <input class="field-input" id="f-secret-val" value="${escapeHTML(n.secret.value)}" placeholder="e.g. 20">
     </div>
     <div class="field-group">
       <div class="field-label">Flag (for flag conditions)</div>
-      <input class="field-input" id="f-secret-flag" value="${n.secret.flag}" placeholder="was_honest">
+      <input class="field-input" id="f-secret-flag" value="${escapeHTML(n.secret.flag)}" placeholder="was_honest">
     </div>
     <div class="field-group">
       <div class="field-label">Secret Next Node</div>
-      <input class="field-input" id="f-secret-next" value="${n.secret.next}" placeholder="secret_1">
+      <input class="field-input" id="f-secret-next" value="${escapeHTML(n.secret.next)}" placeholder="secret_1">
     </div>
 
     <div class="field-section">Choices</div>
@@ -1138,7 +1159,7 @@ function buildChoiceHTML(i, c) {
   return `
     <div class="choice-item" id="choice-item-${i}">
       <div class="choice-row">
-        <input class="field-input" style="flex:1" placeholder="Button text" value="${c.text||''}" oninput="updateChoice(${i},'text',this.value)">
+        <input class="field-input" style="flex:1" placeholder="Button text" value="${escapeHTML(c.text)}" oninput="updateChoice(${i},'text',this.value)">
         <button class="choice-remove" onclick="removeChoice(${i})">×</button>
       </div>
       <div class="choice-row">
@@ -1149,11 +1170,11 @@ function buildChoiceHTML(i, c) {
         </select>
       </div>
       <div class="choice-row">
-        <input class="field-input" style="width:70px" type="number" placeholder="weight" value="${c.weight_change||0}" oninput="updateChoice(${i},'weight_change',parseFloat(this.value)||0)">
-        <input class="field-input" style="flex:1;margin-left:4px" placeholder="next node" value="${c.next||''}" oninput="updateChoice(${i},'next',this.value)">
+        <input class="field-input" style="width:70px" type="number" placeholder="weight" value="${escapeHTML(c.weight_change||0)}" oninput="updateChoice(${i},'weight_change',parseFloat(this.value)||0)">
+        <input class="field-input" style="flex:1;margin-left:4px" placeholder="next node" value="${escapeHTML(c.next)}" oninput="updateChoice(${i},'next',this.value)">
       </div>
       <div class="choice-row">
-        <input class="field-input" style="flex:1" placeholder="set_flag (optional)" value="${c.set_flag||''}" oninput="updateChoice(${i},'set_flag',this.value)">
+        <input class="field-input" style="flex:1" placeholder="set_flag (optional)" value="${escapeHTML(c.set_flag)}" oninput="updateChoice(${i},'set_flag',this.value)">
       </div>
     </div>
   `;
@@ -2210,10 +2231,18 @@ window.addEventListener('DOMContentLoaded', () => {
       const json = decodeURIComponent(escape(atob(code)));
       const data = JSON.parse(json);
       if (data.nodes) {
-        applyShareData(data);
-        // clean the hash from the URL without reloading
-        history.replaceState(null, '', window.location.pathname + window.location.search);
+        // don't silently overwrite the user's autosaved work
+        const existing = Object.keys(nodes).length;
+        const incoming = Object.keys(data.nodes).length;
+        const ok = !existing || confirm(
+          `This link contains a shared graph (${incoming} node${incoming === 1 ? '' : 's'}).\n\n` +
+          `Loading it will replace your current graph (${existing} node${existing === 1 ? '' : 's'}). ` +
+          `Export your work first if you want to keep it.\n\nLoad the shared graph?`
+        );
+        if (ok) applyShareData(data);
       }
+      // clean the hash from the URL without reloading
+      history.replaceState(null, '', window.location.pathname + window.location.search);
     } catch(e) { /* malformed hash, just ignore */ }
   }
 });
@@ -2677,12 +2706,12 @@ function renderDiagList() {
   filtered.forEach(issue => {
     const icon = issue.type === 'error' ? '🛑' : (issue.type === 'warning' ? '⚠' : 'ℹ');
     html += `
-      <div class="diag-issue ${issue.type}" onclick="diagJumpToNode('${issue.nodeId}')">
+      <div class="diag-issue ${issue.type}" onclick="diagJumpToNode(${jsArg(issue.nodeId)})">
         <div class="diag-issue-content">
-          <div class="diag-issue-title"><span>${icon}</span> ${issue.title}</div>
-          <div class="diag-issue-desc">${issue.desc}</div>
+          <div class="diag-issue-title"><span>${icon}</span> ${escapeHTML(issue.title)}</div>
+          <div class="diag-issue-desc">${escapeHTML(issue.desc)}</div>
         </div>
-        <div class="diag-node-tag">Node ${issue.nodeId} ↗</div>
+        <div class="diag-node-tag">Node ${escapeHTML(issue.nodeId)} ↗</div>
       </div>
     `;
   });
@@ -2774,7 +2803,7 @@ function renderPlaytestStep() {
   }
   if (secretWillTrigger) {
     secretBanner.style.display = 'flex';
-    secretBanner.innerHTML = `⚡ Secret route condition met (${n.secret.condition})! Next step will divert to Node ${n.secret.next}.`;
+    secretBanner.innerHTML = `⚡ Secret route condition met (${escapeHTML(n.secret.condition)})! Next step will divert to Node ${escapeHTML(n.secret.next)}.`;
   } else {
     secretBanner.style.display = 'none';
   }
@@ -2829,15 +2858,15 @@ function renderPlaytestStep() {
         metaHtml += `<span class="${cls}">${sign}${wc} weight</span>`;
       }
       if (c.set_flag) {
-        metaHtml += `<span class="pt-badge-flag">+flag: ${c.set_flag}</span>`;
+        metaHtml += `<span class="pt-badge-flag">+flag: ${escapeHTML(c.set_flag)}</span>`;
       }
       if (c.type) {
-        metaHtml += `<span style="opacity:0.6;font-size:10px;">[${c.type}]</span>`;
+        metaHtml += `<span style="opacity:0.6;font-size:10px;">[${escapeHTML(c.type)}]</span>`;
       }
 
       html += `
         <button class="pt-choice-btn" onclick="selectPlaytestChoice(${idx})">
-          <span>${c.text || '(Choice ' + (idx + 1) + ')'}</span>
+          <span>${escapeHTML(c.text || '(Choice ' + (idx + 1) + ')')}</span>
           <div class="pt-choice-meta">${metaHtml}</div>
         </button>
       `;
@@ -2960,7 +2989,7 @@ function renderPlaytestEnd(reachedEnd) {
   document.getElementById('pt-emotion-tag').style.display = 'none';
 
   const flagsArr = Array.from(playtestState.flags);
-  const flagsStr = flagsArr.length ? flagsArr.map(f => `<code style="background:var(--surface2);padding:2px 5px;border-radius:3px;color:var(--accent-light);">${f}</code>`).join(', ') : 'none';
+  const flagsStr = flagsArr.length ? flagsArr.map(f => `<code style="background:var(--surface2);padding:2px 5px;border-radius:3px;color:var(--accent-light);">${escapeHTML(f)}</code>`).join(', ') : 'none';
 
   document.getElementById('pt-dialogue-text').innerHTML = `
     <div style="line-height:1.8;">
