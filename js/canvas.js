@@ -3,7 +3,7 @@
 // ================================
 import { state, lastSelectedId } from './state.js';
 import { escapeHTML } from './utils.js';
-import { splitList } from './graph.js';
+import { splitList, findCharacter } from './graph.js';
 import { getSnapshot, pushHistory, commitSnapshot } from './history.js';
 import { renderSidebar } from './sidebar.js';
 import { markDirty } from './io.js';
@@ -555,6 +555,8 @@ function buildNodeHTML(id) {
   const portY = 20;
   const hasChoices = n.choices && n.choices.length > 0;
   const nodeAttr = escapeHTML(id);
+  const character = findCharacter(state.characters, n.speaker);
+  const speakerColor = character ? character.color : '';
 
   let choicePortsHTML = '';
   let choiceRowsHTML = '';
@@ -577,7 +579,7 @@ function buildNodeHTML(id) {
   return `
     <div class="node-header">
       <span class="node-id">${escapeHTML(n.id)}</span>
-      <span class="node-speaker">${escapeHTML(n.speaker || '<narrator>')}</span>
+      <span class="node-speaker"${speakerColor ? ` style="color:${speakerColor};"` : ''}>${escapeHTML(n.speaker || '<narrator>')}</span>
       ${emotionBadge}
     </div>
     <div class="node-body">

@@ -4,7 +4,8 @@ import {
   createNode, splitList, getTarget, buildConnections, remapRefs, remapConnections,
   computeLayout, buildExportData, extractDictBody, gdscriptDictToJSON, parseFlowGraph,
   encodeShareCode, decodeShareCode, evaluateSecretCondition, nodeMatchesQuery,
-  analyzeGraph, exampleGraph
+  analyzeGraph, exampleGraph, safeColor, findCharacter, emotionsFor, DEFAULT_EMOTIONS,
+  normalizeCharacters, detectCharacters, renameCharacterRefs, speakerLineCounts
 } from '../js/graph.js';
 
 // Build a graph from compact node specs: { id: { ...overrides } }
@@ -181,4 +182,102 @@ test('analyzeGraph reports broken targets, flags and orphans', () => {
     'warning:3:Orphan Node (Unreachable)',
   ]);
   assert.deepEqual(analyzeGraph({ nodes: {}, connections: [] }), []);
+});
+
+// ---- character presets ----
+
+const cast = () => [
+  { name: 'K', color: '#949cf2', emotions: ['tired', 'angry'] },
+  { name: 'Friend', color: '#23a55a', emotions: [] }
+];
+
+test('safeColor only allows 6-digit hex colors', () => {
+  assert.equal(safeColor('#A1b2C3'), '#A1b2C3');
+  assert.equal(safeColor('red'), '');
+  assert.equal(safeColor('#fff;background:url(x)'), '');
+  assert.equal(safeColor(undefined), '');
+});
+
+test('findCharacter / emotionsFor', () => {
+  assert.equal(findCharacter(cast(), ' K ').name, 'K');
+  assert.equal(findCharacter(cast(), 'k'), null);
+  assert.equal(findCharacter(cast(), ''), null);
+  assert.deepEqual(emotionsFor(cast(), 'K'), ['tired', 'angry']);
+  // no preset, or a preset with no emotions -> defaults
+  assert.deepEqual(emotionsFor(cast(), 'Friend'), DEFAULT_EMOTIONS);
+  assert.deepEqual(emotionsFor(cast(), 'Stranger'), DEFAULT_EMOTIONS);
+});
+
+test('normalizeCharacters sanitizes untrusted data', () => {
+  const out = normalizeCharacters([
+    { name: ' K ', color: 'javascript:x', emotions: ['sad', 3, ' ', ' happy '] },
+    { name: 'K', color: '#000000' },
+    { name: '' }, null, 'junk',
+    { name: 'Friend', color: '#123456' }
+  ]);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].name, 'K');
+  assert.match(out[0].color, /^#[0-9a-f]{6}$/i);
+  assert.deepEqual(out[0].emotions, ['sad', 'happy']);
+  assert.deepEqual(out[1], { name: 'Friend', color: '#123456', emotions: [] });
+  assert.deepEqual(normalizeCharacters(undefined), []);
+  assert.deepEqual(normalizeCharacters({ name: 'x' }), []);
+});
+
+test('detectCharacters merges speakers, stage cues and emotions', () => {
+  const { nodes } = graphOf({
+    1: { speaker: 'K', emotion: 'sad' },
+    2: { speaker: 'Mom', emotion: 'worried', showChars: 'K, Dad', expression: 'Ghost:fade' },
+    3: { speaker: 'Mom', emotion: 'worried' }
+  }, []);
+  const existing = cast();
+  const out = detectCharacters(nodes, existing);
+  assert.deepEqual(out.map(c => c.name), ['K', 'Friend', 'Mom', 'Dad', 'Ghost']);
+  assert.deepEqual(out[0].emotions, ['tired', 'angry', 'sad']);
+  assert.deepEqual(out[2].emotions, ['worried']);
+  assert.equal(new Set(out.map(c => c.color)).size, out.length);
+  // input list is not mutated
+  assert.deepEqual(existing, cast());
+});
+
+test('renameCharacterRefs updates speaker, stage cues and expressions only', () => {
+  const { nodes } = graphOf({
+    1: { speaker: 'K', showChars: 'K, Friend', hideChars: 'Kay', expression: 'K:tired, Friend:smile' },
+    2: { speaker: 'Kay', text: 'K said hi' }
+  }, []);
+  assert.equal(renameCharacterRefs(nodes, 'K', 'Kai'), 1);
+  assert.equal(nodes[1].speaker, 'Kai');
+  assert.equal(nodes[1].showChars, 'Kai, Friend');
+  assert.equal(nodes[1].hideChars, 'Kay');
+  assert.equal(nodes[1].expression, 'Kai:tired, Friend:smile');
+  assert.equal(nodes[2].speaker, 'Kay');
+  assert.equal(nodes[2].text, 'K said hi');
+});
+
+test('speakerLineCounts', () => {
+  const { nodes } = graphOf({ 1: { speaker: 'K' }, 2: { speaker: ' K' }, 3: { speaker: '' } }, []);
+  assert.deepEqual(speakerLineCounts(nodes), { K: 2 });
+});
+
+test('analyzeGraph flags unknown speakers and unlisted emotions', () => {
+  const g = graphOf({
+    1: { speaker: 'K', emotion: 'tired', next: '2' },
+    2: { speaker: 'Kk', next: '3' },
+    3: { speaker: 'K', emotion: 'happy', next: '4' },
+    4: { speaker: 'Friend', emotion: 'anything' }
+  });
+  const charIssues = analyzeGraph({ ...g, characters: cast() }).filter(i => !i.title.startsWith('Story End'));
+  assert.deepEqual(titles(charIssues), [
+    'info:3:Unlisted Emotion ("happy")',
+    'warning:2:Unknown Speaker ("Kk")'
+  ]);
+  // no presets defined -> no character checks
+  assert.equal(analyzeGraph({ ...g, characters: [] }).filter(i => i.title.includes('Speaker')).length, 0);
+});
+
+test('example story is consistent with its character presets', () => {
+  const ex = exampleGraph();
+  const issues = analyzeGraph({ nodes: ex.nodes, connections: buildConnections(ex.nodes), characters: ex.characters });
+  assert.equal(issues.filter(i => i.type !== 'info').length, 0);
+  assert.equal(issues.filter(i => i.title.includes('Emotion')).length, 0);
 });

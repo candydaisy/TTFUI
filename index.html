@@ -17,6 +17,7 @@
   <button class="tb-btn" id="redo-btn" data-action="redo" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
   <button class="tb-btn" data-action="autoLayout">Auto Layout</button>
   <button class="tb-btn" data-action="openSearch" title="Search nodes (Ctrl+F)">🔍 Search</button>
+  <button class="tb-btn" data-action="openCharacters" title="Character presets: names, colors, emotions">👥 Characters</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" data-action="zoomIn">+</button>
   <span id="zoom-label">100%</span>
@@ -143,6 +144,30 @@
     <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
       <button class="tb-btn" data-action="closeImport">Cancel</button>
       <button class="tb-btn success" data-action="runImport">Import &amp; Load</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHARACTERS MODAL -->
+<div id="characters-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:720px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14px;">
+      <span>Characters</span>
+      <button data-action="closeCharacters" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;">
+      <p style="font-size:12px;color:var(--text-dim);line-height:1.5;margin-bottom:12px;">
+        Define your cast once. The Speaker field suggests these names, the Emotion menu shows each character's emotions, and diagnostics flag speakers that aren't listed (typos).
+        Renaming a character updates every line, stage cue, and expression that uses it. Presets are saved with your project, not in the exported JSON.
+      </p>
+      <div id="characters-list"></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;">
+      <div style="display:flex;gap:8px;">
+        <button class="tb-btn" data-action="addCharacter">+ Add Character</button>
+        <button class="tb-btn" data-action="detectCharacters" title="Create presets from speakers already used in the story">Detect from Story</button>
+      </div>
+      <button class="tb-btn" data-action="closeCharacters">Close</button>
     </div>
   </div>
 </div>

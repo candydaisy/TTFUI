@@ -12,6 +12,7 @@ export const state = {
   zoom: 1,
   nextId: 1,
   clipboard: null, // { nodes: [...], connections: [...] }
+  characters: [], // character presets: { name, color, emotions }
 };
 
 export function genId() {

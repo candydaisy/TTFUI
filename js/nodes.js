@@ -196,6 +196,7 @@ export function clearAll() {
   pushHistory();
   state.nodes = {};
   state.connections = [];
+  state.characters = [];
   setSelection([]);
   state.nextId = 1;
   rebuildNodeElements();
@@ -231,6 +232,7 @@ export function loadExample() {
   const example = exampleGraph();
   state.nodes = example.nodes;
   state.nextId = example.nextId;
+  state.characters = example.characters;
   state.connections = buildConnections(state.nodes);
   rebuildNodeElements();
   renderConnections();

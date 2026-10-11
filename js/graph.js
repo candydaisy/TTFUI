@@ -68,6 +68,112 @@ export function remapConnections(connections, idMap) {
 }
 
 // ================================
+// CHARACTER PRESETS
+// ================================
+// A character is { name, color, emotions: [...] }. Presets are editor-only
+// data: they are saved with the project (autosave / share links) but not
+// written to the exported flow_graph JSON.
+export const DEFAULT_EMOTIONS = ['angry', 'tired', 'sad', 'nervous'];
+const CHARACTER_COLORS = ['#949cf2', '#23a55a', '#f0b232', '#00a8fc', '#e07be0', '#f2854b', '#4bdbd0', '#da373c'];
+
+// Only plain hex colors are allowed into style attributes.
+export function safeColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : '';
+}
+
+export function findCharacter(characters, name) {
+  const key = String(name || '').trim();
+  return key ? (characters || []).find(c => c.name === key) || null : null;
+}
+
+// Emotions offered for a speaker: their preset list, or the defaults.
+export function emotionsFor(characters, speaker) {
+  const ch = findCharacter(characters, speaker);
+  return ch && ch.emotions.length ? ch.emotions : DEFAULT_EMOTIONS;
+}
+
+export function nextCharacterColor(characters) {
+  const used = new Set(characters.map(c => c.color));
+  return CHARACTER_COLORS.find(c => !used.has(c)) || CHARACTER_COLORS[characters.length % CHARACTER_COLORS.length];
+}
+
+// Sanitize a character list from storage / share links into the expected shape.
+export function normalizeCharacters(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  list.forEach(c => {
+    const name = c && typeof c.name === 'string' ? c.name.trim() : '';
+    if (!name || out.some(o => o.name === name)) return;
+    out.push({
+      name,
+      color: safeColor(c.color) || nextCharacterColor(out),
+      emotions: Array.isArray(c.emotions) ? c.emotions.filter(e => typeof e === 'string' && e.trim()).map(e => e.trim()) : []
+    });
+  });
+  return out;
+}
+
+// Merge characters found in the story (speakers, show/hide lists, expression
+// keys) into `existing`, also adding any emotions they use. Returns a new list.
+export function detectCharacters(nodes, existing = []) {
+  const result = existing.map(c => ({ ...c, emotions: [...c.emotions] }));
+  const ensure = name => {
+    let ch = findCharacter(result, name);
+    if (!ch) {
+      ch = { name, color: nextCharacterColor(result), emotions: [] };
+      result.push(ch);
+    }
+    return ch;
+  };
+
+  Object.values(nodes).forEach(n => {
+    const speaker = String(n.speaker || '').trim();
+    if (speaker) {
+      const ch = ensure(speaker);
+      if (n.emotion && !ch.emotions.includes(n.emotion)) ch.emotions.push(n.emotion);
+    }
+    [...splitList(n.showChars), ...splitList(n.hideChars)].forEach(ensure);
+    splitList(n.expression).forEach(pair => {
+      const name = pair.split(':')[0].trim();
+      if (name) ensure(name);
+    });
+  });
+  return result;
+}
+
+// Rename every reference to a character in the story. Mutates nodes and
+// returns how many nodes changed.
+export function renameCharacterRefs(nodes, oldName, newName) {
+  const renameList = str => splitList(str).map(s => s === oldName ? newName : s).join(', ');
+  let changed = 0;
+  Object.values(nodes).forEach(n => {
+    const before = JSON.stringify(n);
+    if (String(n.speaker || '').trim() === oldName) n.speaker = newName;
+    if (splitList(n.showChars).includes(oldName)) n.showChars = renameList(n.showChars);
+    if (splitList(n.hideChars).includes(oldName)) n.hideChars = renameList(n.hideChars);
+    if (n.expression) {
+      const pairs = splitList(n.expression).map(pair => {
+        const [char, ...rest] = pair.split(':');
+        return char.trim() === oldName ? [newName, ...rest].join(':') : pair;
+      });
+      if (pairs.join(', ') !== splitList(n.expression).join(', ')) n.expression = pairs.join(', ');
+    }
+    if (JSON.stringify(n) !== before) changed++;
+  });
+  return changed;
+}
+
+// Number of lines each character speaks: { name: count }.
+export function speakerLineCounts(nodes) {
+  const counts = {};
+  Object.values(nodes).forEach(n => {
+    const s = String(n.speaker || '').trim();
+    if (s) counts[s] = (counts[s] || 0) + 1;
+  });
+  return counts;
+}
+
+// ================================
 // AUTO LAYOUT
 // ================================
 // Simple left-to-right topological layout. Returns { id: {x, y} }.
@@ -425,6 +531,33 @@ export function analyzeGraph(graph) {
     });
   }
 
+  // 5. Speakers / emotions that don't match the character presets (typo check).
+  // Only runs once at least one character has been defined.
+  const characters = graph.characters || [];
+  if (characters.length) {
+    ids.forEach(id => {
+      const n = nodes[id];
+      const speaker = String(n.speaker || '').trim();
+      if (!speaker) return;
+      const ch = findCharacter(characters, speaker);
+      if (!ch) {
+        issues.push({
+          type: 'warning',
+          nodeId: id,
+          title: `Unknown Speaker ("${speaker}")`,
+          desc: `Speaker "${speaker}" is not in Characters. Check for a typo, or add them as a character.`
+        });
+      } else if (n.emotion && ch.emotions.length && !ch.emotions.includes(n.emotion)) {
+        issues.push({
+          type: 'info',
+          nodeId: id,
+          title: `Unlisted Emotion ("${n.emotion}")`,
+          desc: `${ch.name} has no "${n.emotion}" emotion in Characters.`
+        });
+      }
+    });
+  }
+
   return issues;
 }
 
@@ -448,5 +581,9 @@ export function exampleGraph() {
     "secret_1": { id:"secret_1", x:1140, y:260, speaker:"K", emotion:"sad", text:"...this isn't right.", background:"", sfx:"", amb:"", showChars:"", hideChars:"", expression:"", secret:blankSecret(), choices:[] },
     "8": { id:"8", x:1400, y:100, speaker:"K", emotion:"", text:"another normal day...", background:"", sfx:"", amb:"", showChars:"", hideChars:"", expression:"", secret:blankSecret(), choices:[] }
   };
-  return { nodes, nextId: 9 };
+  const characters = [
+    { name: "K", color: "#949cf2", emotions: ["tired", "angry", "sad", "nervous"] },
+    { name: "Friend", color: "#23a55a", emotions: [] }
+  ];
+  return { nodes, nextId: 9, characters };
 }

@@ -5,6 +5,7 @@ import { state, lastSelectedId } from './state.js';
 import { showToast } from './utils.js';
 import { rebuildNodeElements, updateSelectionVisuals, renderConnections, updateEmptyHint } from './canvas.js';
 import { renderSidebar } from './sidebar.js';
+import { renderCharacterList } from './characters.js';
 import { runDiagnostics } from './diagnostics.js';
 import { markDirty } from './io.js';
 
@@ -17,6 +18,7 @@ export function getSnapshot() {
   return {
     nodes: JSON.parse(JSON.stringify(state.nodes)),
     connections: JSON.parse(JSON.stringify(state.connections)),
+    characters: JSON.parse(JSON.stringify(state.characters)),
     nextId: state.nextId,
     selectedNodeIds: Array.from(state.selectedNodes)
   };
@@ -64,6 +66,7 @@ export function updateUndoRedoUI() {
 function applySnapshot(snapshot) {
   state.nodes = JSON.parse(JSON.stringify(snapshot.nodes || {}));
   state.connections = JSON.parse(JSON.stringify(snapshot.connections || []));
+  state.characters = JSON.parse(JSON.stringify(snapshot.characters || []));
   state.nextId = snapshot.nextId || state.nextId;
   state.selectedNodes = new Set(snapshot.selectedNodeIds || []);
   state.selectedNode = lastSelectedId();
@@ -72,37 +75,40 @@ function applySnapshot(snapshot) {
   updateSelectionVisuals();
   renderConnections();
   renderSidebar();
+  renderCharacterList();
   updateEmptyHint();
   runDiagnostics();
   markDirty();
   updateUndoRedoUI();
 }
 
-// Sidebar edits are recorded as one undo step per field focus, not per keystroke.
-export function setupSidebarHistoryEvents() {
-  const sidebar = document.getElementById('sidebar-content');
-  if (!sidebar) return;
+// Form edits (sidebar, characters window) are recorded as one undo step per
+// field focus, not per keystroke.
+export function setupFieldHistory(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
 
+  const editedData = s => JSON.stringify([s.nodes, s.characters]);
   const commitIfChanged = () => {
-    if (JSON.stringify(state.nodes) !== JSON.stringify(fieldFocusSnapshot.nodes)) {
+    if (editedData(state) !== editedData(fieldFocusSnapshot)) {
       commitSnapshot(fieldFocusSnapshot);
     }
   };
 
-  sidebar.addEventListener('focusin', e => {
+  container.addEventListener('focusin', e => {
     if (e.target.matches('input, textarea, select')) {
       fieldFocusSnapshot = getSnapshot();
     }
   });
 
-  sidebar.addEventListener('focusout', e => {
+  container.addEventListener('focusout', e => {
     if (e.target.matches('input, textarea, select') && fieldFocusSnapshot) {
       commitIfChanged();
       fieldFocusSnapshot = null;
     }
   });
 
-  sidebar.addEventListener('change', e => {
+  container.addEventListener('change', e => {
     if (e.target.matches('select') && fieldFocusSnapshot) {
       commitIfChanged();
       fieldFocusSnapshot = getSnapshot();

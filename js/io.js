@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { showToast } from './utils.js';
 import {
   buildExportData, extractDictBody, parseFlowGraph, buildConnections,
-  encodeShareCode, decodeShareCode
+  encodeShareCode, decodeShareCode, normalizeCharacters, detectCharacters
 } from './graph.js';
 import { pushHistory, clearHistory } from './history.js';
 import {
@@ -141,8 +141,8 @@ export function markDirty() {
 
 function saveToStorage() {
   try {
-    const { nodes, connections, pan, zoom, nextId } = state;
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, pan, zoom, nextId, savedAt: Date.now() }));
+    const { nodes, connections, characters, pan, zoom, nextId } = state;
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, pan, zoom, nextId, savedAt: Date.now() }));
     setSaveStatus('saved', '⬤ saved');
   } catch (e) {
     setSaveStatus('error', '⚠ save failed');
@@ -158,6 +158,7 @@ export function loadFromStorage() {
 
     state.nodes = data.nodes;
     state.connections = data.connections || [];
+    state.characters = normalizeCharacters(data.characters);
     state.pan = data.pan || { x: 60, y: 60 };
     state.zoom = data.zoom || 1;
     state.nextId = data.nextId || 1;
@@ -248,6 +249,8 @@ export function runImport() {
   state.nodes = parsed.nodes;
   state.nextId = parsed.nextId;
   state.connections = buildConnections(state.nodes);
+  // the export format has no character data, so pick up any new speakers
+  state.characters = detectCharacters(state.nodes, state.characters);
   setSelection([]);
 
   rebuildNodeElements();
@@ -269,7 +272,7 @@ function showImportError(msg) {
 // SHARE - URL & CLIPBOARD
 // ================================
 export function openShareModal() {
-  const code = encodeShareCode({ nodes: state.nodes, connections: state.connections, nextId: state.nextId });
+  const code = encodeShareCode({ nodes: state.nodes, connections: state.connections, characters: state.characters, nextId: state.nextId });
   document.getElementById('share-code-area').value = code;
 
   // URL: current page URL + #share=<code>
@@ -317,6 +320,7 @@ function applyShareData(data) {
   pushHistory();
   state.nodes = data.nodes || {};
   state.connections = data.connections || [];
+  state.characters = normalizeCharacters(data.characters);
   state.nextId = data.nextId || 1;
   setSelection([]);
   rebuildNodeElements();

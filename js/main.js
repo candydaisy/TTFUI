@@ -2,7 +2,7 @@
 // ENTRY POINT: wiring, actions, keyboard shortcuts
 // ================================
 import { state, hasSelection } from './state.js';
-import { undo, redo, updateUndoRedoUI, setupSidebarHistoryEvents } from './history.js';
+import { undo, redo, updateUndoRedoUI, setupFieldHistory } from './history.js';
 import {
   drawGrid, applyTransform, setupCanvasEvents, zoomIn, zoomOut, resetZoom, selectAllNodes,
   hideCtxMenu, updateEmptyHint,
@@ -13,6 +13,9 @@ import {
   pasteNode, clearAll, autoLayout, loadExample
 } from './nodes.js';
 import { setupSidebarEvents, addChoice, removeChoice } from './sidebar.js';
+import {
+  setupCharactersEvents, openCharacters, closeCharacters, addCharacter, removeCharacter, detectCharactersFromStory
+} from './characters.js';
 import { setupSearchEvents, openSearch, closeSearch, searchNext, searchPrev } from './search.js';
 import {
   setupDiagnosticsEvents, runDiagnostics, toggleDiagnostics, closeDiagnostics, filterDiag, isDiagnosticsOpen
@@ -45,6 +48,7 @@ const ACTIONS = {
   clearAll: () => clearAll(),
   toggleDiagnostics: () => toggleDiagnostics(),
   openShareModal: () => openShareModal(),
+  openCharacters: () => openCharacters(),
   openPlaytest: () => openPlaytest(),
   loadExample: () => loadExample(),
   openImport: () => openImport(),
@@ -90,6 +94,12 @@ const ACTIONS = {
   copyShareCode: () => copyShareCode(),
   loadShareCode: () => loadShareCode(),
 
+  // characters window
+  closeCharacters: () => closeCharacters(),
+  addCharacter: () => addCharacter(),
+  removeCharacter: el => removeCharacter(el),
+  detectCharacters: () => detectCharactersFromStory(),
+
   // diagnostics
   closeDiagnostics: () => closeDiagnostics(),
   filterDiag: el => filterDiag(el.dataset.arg),
@@ -125,6 +135,7 @@ function onEditorKeydown(e) {
     closeModal();
     hideCtxMenu();
     closeShareModal();
+    closeCharacters();
     closeSearch();
     return;
   }
@@ -203,8 +214,10 @@ drawGrid();
 applyTransform();
 setupCanvasEvents();
 setupSearchEvents();
-setupSidebarHistoryEvents();
+setupFieldHistory('sidebar-content');
+setupFieldHistory('characters-list');
 setupSidebarEvents();
+setupCharactersEvents();
 setupDiagnosticsEvents();
 setupPlaytestEvents();
 setupIOEvents();

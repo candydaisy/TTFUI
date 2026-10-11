@@ -3,12 +3,22 @@
 // ================================
 import { state } from './state.js';
 import { escapeHTML } from './utils.js';
+import { emotionsFor } from './graph.js';
 import { pushHistory } from './history.js';
 import { updateNodeEl, renderConnections } from './canvas.js';
 import { markDirty } from './io.js';
 
 const option = (value, current, label = value) =>
-  `<option value="${value}" ${current === value ? 'selected' : ''}>${label}</option>`;
+  `<option value="${escapeHTML(value)}" ${current === value ? 'selected' : ''}>${escapeHTML(label)}</option>`;
+
+// Emotion choices follow the speaker's character preset. A value that isn't
+// in the list (e.g. from an imported file) is still shown so it isn't lost.
+function emotionOptionsHTML(n) {
+  const emotions = emotionsFor(state.characters, n.speaker);
+  const extra = n.emotion && !emotions.includes(n.emotion) ? [n.emotion] : [];
+  return `<option value="" ${!n.emotion ? 'selected' : ''}>- none -</option>` +
+    [...emotions, ...extra].map(v => option(v, n.emotion)).join('');
+}
 
 export function renderSidebar() {
   const content = document.getElementById('sidebar-content');
@@ -51,14 +61,12 @@ export function renderSidebar() {
     </div>
     <div class="field-group">
       <div class="field-label">Speaker</div>
-      <input class="field-input" id="f-speaker" value="${escapeHTML(n.speaker)}" placeholder="K, Friend, (empty for narrator)">
+      <input class="field-input" id="f-speaker" list="character-list" value="${escapeHTML(n.speaker)}" placeholder="K, Friend, (empty for narrator)" autocomplete="off">
+      <datalist id="character-list">${state.characters.map(c => `<option value="${escapeHTML(c.name)}">`).join('')}</datalist>
     </div>
     <div class="field-group">
       <div class="field-label">Emotion</div>
-      <select class="field-input" id="f-emotion">
-        <option value="" ${!n.emotion?'selected':''}>- none -</option>
-        ${['angry', 'tired', 'sad', 'nervous'].map(v => option(v, n.emotion)).join('')}
-      </select>
+      <select class="field-input" id="f-emotion">${emotionOptionsHTML(n)}</select>
     </div>
     <div class="field-group">
       <div class="field-label">Dialog Text</div>
@@ -185,6 +193,7 @@ export function setupSidebarEvents() {
 
     if (e.type === 'input' && FIELDS[el.id]) {
       FIELDS[el.id](n, el.value);
+      if (el.id === 'f-speaker') document.getElementById('f-emotion').innerHTML = emotionOptionsHTML(n);
       updateNodeEl(state.selectedNode);
       renderConnections();
       markDirty();

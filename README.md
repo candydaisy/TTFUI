@@ -22,6 +22,14 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - **Scene and Audio Directing:** Set background scenery, character stage enter/exit cues, sound effects (`SFX`), and ambient loops (`Amb`).
   - **Story Flags and Weights:** Track narrative state using custom story flags and numeric story weights (e.g., sanity, relationship meters).
 
+- **Character Presets**
+  - Define your cast once with a name, a speaker color, and the emotions each character can use.
+  - The Speaker field suggests character names, and the Emotion menu shows that character's emotions.
+  - Renaming a character updates every line, stage cue, and expression that uses it.
+  - Diagnostics flag speakers that aren't in the cast (typos like `Freind`) and emotions a character doesn't have.
+  - **Detect from Story** builds presets from the speakers you've already written. Importing a file does this automatically.
+  - Presets are saved with your project (auto-save and share links) but are not added to the exported JSON, so the game format is unchanged.
+
 - **Branching and Secret Routes**
   - **Choice System:** Multiple player dialogue choices with customized reply types, weight changes, next node targets, and flag setters.
   - **Secret Conditions:** Conditional branching based on flag checks or weight thresholds (e.g., `weight_below`, `has_flag`) diverting the story to alternate routes.
@@ -147,6 +155,7 @@ TTFUI/
 │   ├── canvas.js       # Pan/zoom, mouse & touch interaction, node rendering, context menu
 │   ├── nodes.js        # Node operations: add, delete, copy, paste, duplicate, layout
 │   ├── sidebar.js      # Properties panel and choice editor
+│   ├── characters.js   # Character presets window
 │   ├── history.js      # Undo / redo
 │   ├── search.js       # Ctrl+F node search
 │   ├── diagnostics.js  # Story linter panel

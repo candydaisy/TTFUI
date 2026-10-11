@@ -3,7 +3,7 @@
 // ================================
 import { state } from './state.js';
 import { escapeHTML, showToast } from './utils.js';
-import { getTarget, evaluateSecretCondition } from './graph.js';
+import { getTarget, evaluateSecretCondition, findCharacter } from './graph.js';
 import { centerOnNode, clearHighlight } from './canvas.js';
 
 let playtestState = newRun(null);
@@ -112,7 +112,8 @@ function renderPlaytestStep() {
   // Dialogue Box
   const speakerNameEl = document.getElementById('pt-speaker-name');
   speakerNameEl.textContent = n.speaker ? n.speaker : '(Narrator)';
-  speakerNameEl.style.color = n.speaker ? 'var(--accent)' : 'var(--text-muted)';
+  const character = findCharacter(state.characters, n.speaker);
+  speakerNameEl.style.color = character ? character.color : n.speaker ? 'var(--accent)' : 'var(--text-muted)';
 
   const emotionTag = document.getElementById('pt-emotion-tag');
   if (n.emotion) {
