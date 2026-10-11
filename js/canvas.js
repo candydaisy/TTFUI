@@ -24,6 +24,17 @@ let marqueeStart = null;
 let initialSelectedNodes = new Set();
 let ctxTarget = null;
 let ctxPos = { x: 0, y: 0 };
+let pendingMove = null; // latest mousemove, applied once per animation frame
+
+// Port centers relative to their node's top-left corner: nodeId -> { port: {x, y} }.
+// Ports sit at fixed offsets inside a node, so they're measured once per node
+// render instead of on every redraw (layout reads are what made dragging slow).
+const portOffsets = new Map();
+
+// SVG shapes currently drawn: key -> { el, sig }. Redraws update only shapes
+// whose attributes changed instead of re-parsing every connection.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const drawnShapes = new Map();
 
 // ================================
 // GRID
@@ -116,6 +127,80 @@ function hideTempLine() {
   document.getElementById('temp-line').style.width = '0';
 }
 
+function flushPendingMove() {
+  if (!pendingMove) return;
+  const e = pendingMove;
+  pendingMove = null;
+  onMouseMove(e);
+}
+
+function onMouseMove(e) {
+  if (panning) {
+    state.pan.x = e.clientX - panStart.x;
+    state.pan.y = e.clientY - panStart.y;
+    applyTransform();
+  }
+  if (dragging) {
+    const dx = (e.clientX - dragging.startX) / state.zoom;
+    const dy = (e.clientY - dragging.startY) / state.zoom;
+    if (Math.hypot(e.clientX - dragging.startX, e.clientY - dragging.startY) > 3) {
+      dragging.moved = true;
+    }
+    Object.keys(dragging.startPositions).forEach(nid => {
+      const n = state.nodes[nid];
+      if (n) {
+        n.x = Math.max(0, Math.round(dragging.startPositions[nid].x + dx));
+        n.y = Math.max(0, Math.round(dragging.startPositions[nid].y + dy));
+        const el = document.getElementById('node-' + nid);
+        if (el) {
+          el.style.left = n.x + 'px';
+          el.style.top = n.y + 'px';
+        }
+      }
+    });
+    renderConnections();
+    markDirty();
+  }
+  if (marqueeSelecting && marqueeStart) {
+    const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+    const minX = Math.min(e.clientX, marqueeStart.clientX);
+    const maxX = Math.max(e.clientX, marqueeStart.clientX);
+    const minY = Math.min(e.clientY, marqueeStart.clientY);
+    const maxY = Math.max(e.clientY, marqueeStart.clientY);
+
+    const mBox = document.getElementById('selection-box');
+    if (mBox) {
+      mBox.style.left = (minX - wrapRect.left) + 'px';
+      mBox.style.top = (minY - wrapRect.top) + 'px';
+      mBox.style.width = (maxX - minX) + 'px';
+      mBox.style.height = (maxY - minY) + 'px';
+    }
+
+    // Calculate canvas bounds
+    const topLeft = screenToCanvas(minX, minY);
+    const bottomRight = screenToCanvas(maxX, maxY);
+
+    const nextSelection = new Set(e.shiftKey ? initialSelectedNodes : []);
+    Object.keys(state.nodes).forEach(id => {
+      const n = state.nodes[id];
+      const el = document.getElementById('node-' + id);
+      const nw = el ? el.offsetWidth : 260;
+      const nh = el ? el.offsetHeight : 140;
+      const intersects = !(n.x > bottomRight.x || n.x + nw < topLeft.x || n.y > bottomRight.y || n.y + nh < topLeft.y);
+      if (intersects) {
+        nextSelection.add(id);
+      }
+    });
+
+    state.selectedNodes = nextSelection;
+    state.selectedNode = lastSelectedId();
+    updateSelectionVisuals();
+  }
+  if (connecting) {
+    updateTempLine(connecting.sx, connecting.sy, e.clientX, e.clientY);
+  }
+}
+
 export function setupCanvasEvents() {
   const wrap = document.getElementById('canvas-wrap');
 
@@ -153,74 +238,14 @@ export function setupCanvasEvents() {
     hideCtxMenu();
   });
 
+  // Mice can fire several moves per frame; only the latest one per frame is applied.
   window.addEventListener('mousemove', e => {
-    if (panning) {
-      state.pan.x = e.clientX - panStart.x;
-      state.pan.y = e.clientY - panStart.y;
-      applyTransform();
-    }
-    if (dragging) {
-      const dx = (e.clientX - dragging.startX) / state.zoom;
-      const dy = (e.clientY - dragging.startY) / state.zoom;
-      if (Math.hypot(e.clientX - dragging.startX, e.clientY - dragging.startY) > 3) {
-        dragging.moved = true;
-      }
-      Object.keys(dragging.startPositions).forEach(nid => {
-        const n = state.nodes[nid];
-        if (n) {
-          n.x = Math.max(0, Math.round(dragging.startPositions[nid].x + dx));
-          n.y = Math.max(0, Math.round(dragging.startPositions[nid].y + dy));
-          const el = document.getElementById('node-' + nid);
-          if (el) {
-            el.style.left = n.x + 'px';
-            el.style.top = n.y + 'px';
-          }
-        }
-      });
-      renderConnections();
-      markDirty();
-    }
-    if (marqueeSelecting && marqueeStart) {
-      const wrapRect = wrap.getBoundingClientRect();
-      const minX = Math.min(e.clientX, marqueeStart.clientX);
-      const maxX = Math.max(e.clientX, marqueeStart.clientX);
-      const minY = Math.min(e.clientY, marqueeStart.clientY);
-      const maxY = Math.max(e.clientY, marqueeStart.clientY);
-
-      const mBox = document.getElementById('selection-box');
-      if (mBox) {
-        mBox.style.left = (minX - wrapRect.left) + 'px';
-        mBox.style.top = (minY - wrapRect.top) + 'px';
-        mBox.style.width = (maxX - minX) + 'px';
-        mBox.style.height = (maxY - minY) + 'px';
-      }
-
-      // Calculate canvas bounds
-      const topLeft = screenToCanvas(minX, minY);
-      const bottomRight = screenToCanvas(maxX, maxY);
-
-      const nextSelection = new Set(e.shiftKey ? initialSelectedNodes : []);
-      Object.keys(state.nodes).forEach(id => {
-        const n = state.nodes[id];
-        const el = document.getElementById('node-' + id);
-        const nw = el ? el.offsetWidth : 260;
-        const nh = el ? el.offsetHeight : 140;
-        const intersects = !(n.x > bottomRight.x || n.x + nw < topLeft.x || n.y > bottomRight.y || n.y + nh < topLeft.y);
-        if (intersects) {
-          nextSelection.add(id);
-        }
-      });
-
-      state.selectedNodes = nextSelection;
-      state.selectedNode = lastSelectedId();
-      updateSelectionVisuals();
-    }
-    if (connecting) {
-      updateTempLine(connecting.sx, connecting.sy, e.clientX, e.clientY);
-    }
+    if (!pendingMove) requestAnimationFrame(flushPendingMove);
+    pendingMove = e;
   });
 
   window.addEventListener('mouseup', () => {
+    flushPendingMove(); // apply the final position before finishing the gesture
     if (panning) {
       panning = false;
       wrap.classList.remove('panning');
@@ -514,6 +539,7 @@ export function createNodeEl(id) {
 
 // Throw away all node elements and recreate them from state.nodes.
 export function rebuildNodeElements() {
+  portOffsets.clear();
   document.getElementById('nodes-layer').innerHTML = '';
   Object.keys(state.nodes).forEach(id => createNodeEl(id));
 }
@@ -603,6 +629,7 @@ export function updateNodeEl(id) {
   el.style.top = n.y + 'px';
   el.innerHTML = buildNodeHTML(id);
   attachNodeEvents(el, id);
+  portOffsets.delete(id); // ports may have changed (choices / secret route)
 }
 
 function setupPorts(el, id) {
@@ -642,13 +669,32 @@ function setupPorts(el, id) {
 // ================================
 // CONNECTIONS
 // ================================
-function getPortCenter(nodeId, portType) {
+function measurePorts(nodeId) {
   const el = document.getElementById('node-' + nodeId);
   if (!el) return null;
-  const port = el.querySelector(`.port[data-port="${portType}"]`);
-  if (!port) return null;
-  const pRect = port.getBoundingClientRect();
-  return screenToCanvas(pRect.left + pRect.width/2, pRect.top + pRect.height/2);
+  const offsets = {};
+  el.querySelectorAll('.port').forEach(port => {
+    // offsetLeft/Top are relative to the node's padding box, so add its border
+    offsets[port.dataset.port] = {
+      x: el.clientLeft + port.offsetLeft + port.offsetWidth / 2,
+      y: el.clientTop + port.offsetTop + port.offsetHeight / 2
+    };
+  });
+  return offsets;
+}
+
+// Port center in canvas coordinates.
+function getPortCenter(nodeId, portType) {
+  const n = state.nodes[nodeId];
+  if (!n) return null;
+  let offsets = portOffsets.get(nodeId);
+  if (!offsets) {
+    offsets = measurePorts(nodeId);
+    if (!offsets) return null;
+    portOffsets.set(nodeId, offsets);
+  }
+  const o = offsets[portType];
+  return o ? { x: n.x + o.x, y: n.y + o.y } : null;
 }
 
 export function renderConnections() {
@@ -661,14 +707,18 @@ export function renderConnections() {
     maxX = Math.max(maxX, n.x + 300);
     maxY = Math.max(maxY, n.y + 300);
   });
-  svg.style.width = maxX + 'px';
-  svg.style.height = maxY + 'px';
-  svg.setAttribute('width', maxX);
-  svg.setAttribute('height', maxY);
+  if (svg.getAttribute('width') !== String(maxX) || svg.getAttribute('height') !== String(maxY)) {
+    svg.style.width = maxX + 'px';
+    svg.style.height = maxY + 'px';
+    svg.setAttribute('width', maxX);
+    svg.setAttribute('height', maxY);
+  }
 
-  let html = '';
+  const shapes = []; // { key, tag, attrs, text? }
 
   // ---- FLAG LINKS: thin dashed lines between set_flag and secret.flag readers ----
+  // Only drawn for links touching the selection: there is one per setter/reader
+  // pair, so on big stories drawing them all is slow to paint and unreadable.
   // Build a map: flagName -> { setters: [nodeId, ...], readers: [nodeId, ...] }
   const flagMap = {};
   Object.values(nodes).forEach(n => {
@@ -702,6 +752,7 @@ export function renderConnections() {
     setters.forEach(sid => {
       readers.forEach(rid => {
         if (sid === rid) return;
+        if (!state.selectedNodes.has(sid) && !state.selectedNodes.has(rid)) return;
         const sn = nodes[sid], rn = nodes[rid];
         if (!sn || !rn) return;
         const nodeW = 220, nodeH = 90; // approx
@@ -711,13 +762,16 @@ export function renderConnections() {
         const ry = rn.y + nodeH / 2;
         const mx = (sx + rx) / 2;
         const my = Math.min(sy, ry) - 40; // arc above
-        html += `<path d="M${sx},${sy} Q${mx},${my} ${rx},${ry}"
-          stroke="${color}" stroke-width="1.2" fill="none" opacity="0.55"
-          stroke-dasharray="4,5"/>`;
+        const key = `flag\u0000${flagName}\u0000${sid}\u0000${rid}`;
+        shapes.push({ key, tag: 'path', attrs: {
+          d: `M${sx},${sy} Q${mx},${my} ${rx},${ry}`,
+          stroke: color, 'stroke-width': '1.2', fill: 'none', 'stroke-opacity': '0.55', 'stroke-dasharray': '4,5'
+        } });
         // small flag label at midpoint
-        html += `<text x="${mx}" y="${my - 6}" text-anchor="middle"
-          font-family="var(--font-mono)" font-size="9" fill="${color}" opacity="0.8"
-          style="pointer-events:none;">⚑ ${escapeHTML(flagName)}</text>`;
+        shapes.push({ key: key + '\u0000label', tag: 'text', text: '⚑ ' + flagName, attrs: {
+          x: mx, y: my - 6, 'text-anchor': 'middle', 'font-family': 'var(--font-mono)', 'font-size': '9',
+          fill: color, 'fill-opacity': '0.8', style: 'pointer-events:none;'
+        } });
       });
     });
   });
@@ -737,12 +791,45 @@ export function renderConnections() {
       color = hues[idx % hues.length];
     }
 
-    const path = `M${from.x},${from.y} C${from.x+dx},${from.y} ${to.x-dx},${to.y} ${to.x},${to.y}`;
-    html += `<path d="${path}" stroke="${color}" stroke-width="2" fill="none" opacity="0.7"/>
-             <circle cx="${to.x}" cy="${to.y}" r="3" fill="${color}" opacity="0.9"/>`;
+    const key = `conn\u0000${c.from}\u0000${c.fromPort}\u0000${c.to}`;
+    // stroke-/fill-opacity rather than opacity: per-element opacity makes the
+    // browser paint each shape in its own layer, which is very slow when zooming
+    shapes.push({ key, tag: 'path', attrs: {
+      d: `M${from.x},${from.y} C${from.x+dx},${from.y} ${to.x-dx},${to.y} ${to.x},${to.y}`,
+      stroke: color, 'stroke-width': '2', fill: 'none', 'stroke-opacity': '0.7'
+    } });
+    shapes.push({ key: key + '\u0000end', tag: 'circle', attrs: {
+      cx: to.x, cy: to.y, r: '3', fill: color, 'fill-opacity': '0.9'
+    } });
   });
 
-  svg.innerHTML = html;
+  syncShapes(svg, shapes);
+}
+
+// Make the SVG contain exactly `shapes`, touching only what changed.
+function syncShapes(svg, shapes) {
+  const seen = new Set();
+  shapes.forEach(({ key, tag, attrs, text }) => {
+    seen.add(key);
+    const sig = Object.values(attrs).join('|') + '|' + (text || '');
+    let entry = drawnShapes.get(key);
+    if (!entry) {
+      entry = { el: document.createElementNS(SVG_NS, tag), sig: '' };
+      svg.appendChild(entry.el);
+      drawnShapes.set(key, entry);
+    }
+    if (entry.sig !== sig) {
+      Object.entries(attrs).forEach(([name, value]) => entry.el.setAttribute(name, value));
+      if (text !== undefined) entry.el.textContent = text;
+      entry.sig = sig;
+    }
+  });
+  drawnShapes.forEach((entry, key) => {
+    if (!seen.has(key)) {
+      entry.el.remove();
+      drawnShapes.delete(key);
+    }
+  });
 }
 
 // ================================
@@ -752,6 +839,7 @@ export function updateSelectionVisuals() {
   document.querySelectorAll('.node').forEach(el => {
     el.classList.toggle('selected', state.selectedNodes.has(el.id.replace('node-', '')));
   });
+  renderConnections(); // flag links follow the selection
 }
 
 export function selectAllNodes() {

@@ -19,7 +19,8 @@ export function setupDiagnosticsEvents() {
 export function runDiagnostics() {
   diagIssues = analyzeGraph(state);
   updateDiagButton();
-  renderDiagList();
+  // the list is only visible in the panel; it's rendered when the panel opens
+  if (isDiagnosticsOpen()) renderDiagList();
 }
 
 function countOf(type) {
@@ -53,8 +54,8 @@ export function toggleDiagnostics() {
   if (isDiagnosticsOpen()) {
     closeDiagnostics();
   } else {
-    runDiagnostics();
     document.getElementById('diag-overlay').style.display = 'flex';
+    runDiagnostics();
   }
 }
 

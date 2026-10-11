@@ -25,8 +25,24 @@ export function splitList(str) {
 // reference stored on the node itself.
 export function getTarget(graph, id, port) {
   const conn = graph.connections.find(c => c.from === id && c.fromPort === port);
-  if (conn) return conn.to;
-  const n = graph.nodes[id];
+  return conn ? conn.to : storedTarget(graph.nodes[id], port);
+}
+
+// Same as getTarget, but indexes the connections once up front. Use this when
+// resolving many ports (a linear scan per lookup is quadratic on big graphs).
+export function targetResolver(graph) {
+  const index = new Map();
+  graph.connections.forEach(c => {
+    const key = c.from + '\u0000' + c.fromPort;
+    if (!index.has(key)) index.set(key, c.to); // first match wins, like find()
+  });
+  return (id, port) => {
+    const key = id + '\u0000' + port;
+    return index.has(key) ? index.get(key) : storedTarget(graph.nodes[id], port);
+  };
+}
+
+function storedTarget(n, port) {
   if (!n) return '';
   if (port === 'out') return n.next || '';
   if (port === 'secret') return (n.secret && n.secret.next) || '';
@@ -222,6 +238,7 @@ export function computeLayout(graph) {
 // ================================
 export function buildExportData(graph) {
   const exportData = {};
+  const target = targetResolver(graph);
 
   Object.keys(graph.nodes).forEach(id => {
     const n = graph.nodes[id];
@@ -231,7 +248,7 @@ export function buildExportData(graph) {
     if (n.emotion) item.emotion = n.emotion;
     item.text = n.text || '';
 
-    const nextVal = getTarget(graph, id, 'out');
+    const nextVal = target(id, 'out');
     if (nextVal && (!n.choices || !n.choices.length)) item.next = nextVal;
 
     if (n.background) item.background = n.background;
@@ -250,7 +267,7 @@ export function buildExportData(graph) {
 
     // secret
     if (n.secret && n.secret.condition) {
-      const secretNext = getTarget(graph, id, 'secret');
+      const secretNext = target(id, 'secret');
       const secObj = { condition: n.secret.condition };
       if (n.secret.value !== undefined && n.secret.value !== '') {
         secObj.value = isNaN(Number(n.secret.value)) ? n.secret.value : Number(n.secret.value);
@@ -267,7 +284,7 @@ export function buildExportData(graph) {
           text: c.text,
           type: c.type || 'neutral',
           weight_change: Number(c.weight_change) || 0,
-          next: getTarget(graph, id, `choice-${ci}`)
+          next: target(id, `choice-${ci}`)
         };
         if (c.set_flag) choiceObj.set_flag = c.set_flag;
         return choiceObj;
@@ -414,6 +431,7 @@ export function analyzeGraph(graph) {
   const issues = [];
   const ids = Object.keys(nodes);
   if (!ids.length) return issues;
+  const target = targetResolver(graph);
 
   // Set of all flags set in the game across choices
   const setFlags = new Set();
@@ -426,7 +444,7 @@ export function analyzeGraph(graph) {
   // 1. Broken references (target node does not exist)
   ids.forEach(id => {
     const n = nodes[id];
-    const nextTarget = getTarget(graph, id, 'out');
+    const nextTarget = target(id, 'out');
     if (nextTarget && !nodes[nextTarget]) {
       issues.push({
         type: 'error',
@@ -436,7 +454,7 @@ export function analyzeGraph(graph) {
       });
     }
 
-    const secretNext = getTarget(graph, id, 'secret');
+    const secretNext = target(id, 'secret');
     if (secretNext && !nodes[secretNext]) {
       issues.push({
         type: 'error',
@@ -447,7 +465,7 @@ export function analyzeGraph(graph) {
     }
 
     (n.choices || []).forEach((c, i) => {
-      const cTarget = getTarget(graph, id, `choice-${i}`);
+      const cTarget = target(id, `choice-${i}`);
       if (cTarget && !nodes[cTarget]) {
         issues.push({
           type: 'error',
@@ -493,7 +511,7 @@ export function analyzeGraph(graph) {
     if (!n) continue;
     const ports = ['out', 'secret', ...(n.choices || []).map((_, i) => `choice-${i}`)];
     ports.forEach(port => {
-      const nxt = getTarget(graph, curr, port);
+      const nxt = target(curr, port);
       if (nxt && nodes[nxt] && !reachable.has(nxt)) {
         reachable.add(nxt);
         queue.push(nxt);
@@ -516,9 +534,9 @@ export function analyzeGraph(graph) {
   if (ids.length > 1) {
     ids.forEach(id => {
       const n = nodes[id];
-      const hasDirectNext = Boolean(getTarget(graph, id, 'out'));
+      const hasDirectNext = Boolean(target(id, 'out'));
       const hasChoices = Boolean(n.choices && n.choices.length);
-      const hasSecret = Boolean(getTarget(graph, id, 'secret'));
+      const hasSecret = Boolean(target(id, 'secret'));
 
       if (!hasDirectNext && !hasChoices && !hasSecret) {
         issues.push({

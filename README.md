@@ -14,6 +14,7 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 - **Visual Node Graph Editor**
   - Interactive canvas with smooth panning, zooming, and grid snapping.
   - Port-based visual connections for sequential dialogue, branch choices, and secret conditional paths.
+  - Dashed flag links show where the selected node's story flags are set and checked.
   - Auto-layout button to organize complex narrative graphs cleanly.
   - Multi-touch gestures (two-finger pan, pinch-to-zoom).
 
