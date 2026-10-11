@@ -93,7 +93,7 @@ export async function saveCodeToFile(btn, forceSaveAs = true) {
       const writable = await handle.createWritable();
       await writable.write(code);
       await writable.close();
-      if (btn) flashButton(btn, '✓ Saved!');
+      if (btn) flashButton(btn, 'Saved!');
       showToast('Saved to ' + handle.name);
       return;
     } catch (err) {
@@ -112,7 +112,7 @@ export async function saveCodeToFile(btn, forceSaveAs = true) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  if (btn) flashButton(btn, '✓ Saved!');
+  if (btn) flashButton(btn, 'Saved!');
   if (!window.showSaveFilePicker) {
     showToast(`Saved ${filename}. (Tip: Enable "Always ask where to save" in Firefox Settings)`);
   } else {
@@ -123,7 +123,7 @@ export async function saveCodeToFile(btn, forceSaveAs = true) {
 export function copyCode(btn) {
   const ta = document.getElementById('output-code');
   ta.select();
-  navigator.clipboard.writeText(ta.value).then(() => flashButton(btn, '✓ Copied!', 'Copy to Clipboard'));
+  navigator.clipboard.writeText(ta.value).then(() => flashButton(btn, 'Copied!', 'Copy to Clipboard'));
 }
 
 // ================================
@@ -133,7 +133,7 @@ const SAVE_KEY = 'flow_editor_autosave';
 let saveTimeout = null;
 
 export function markDirty() {
-  setSaveStatus('unsaved', '● unsaved');
+  setSaveStatus('unsaved', 'unsaved');
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(saveToStorage, 1500); // save 1.5s after last change
   runDiagnostics();
@@ -143,9 +143,9 @@ function saveToStorage() {
   try {
     const { nodes, connections, characters, pan, zoom, nextId } = state;
     localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, pan, zoom, nextId, savedAt: Date.now() }));
-    setSaveStatus('saved', '⬤ saved');
+    setSaveStatus('saved', 'saved');
   } catch (e) {
-    setSaveStatus('error', '⚠ save failed');
+    setSaveStatus('error', 'save failed');
   }
 }
 
@@ -172,8 +172,8 @@ export function loadFromStorage() {
 
     const ago = Math.round((Date.now() - data.savedAt) / 1000);
     const agoStr = ago < 60 ? `${ago}s ago` : ago < 3600 ? `${Math.round(ago/60)}m ago` : 'a while ago';
-    setSaveStatus('saved', `⬤ restored (${agoStr})`);
-    setTimeout(() => setSaveStatus('saved', '⬤ saved'), 3000);
+    setSaveStatus('saved', `restored (${agoStr})`);
+    setTimeout(() => setSaveStatus('saved', 'saved'), 3000);
     return true;
   } catch (e) {
     return false;
@@ -188,7 +188,7 @@ function setSaveStatus(status, text) {
 
 export function clearSave() {
   localStorage.removeItem(SAVE_KEY);
-  setSaveStatus('saved', '⬤ cleared');
+  setSaveStatus('saved', 'cleared');
 }
 
 // ================================
@@ -215,7 +215,7 @@ function loadJSONFile(file) {
   reader.onload = e => {
     document.getElementById('import-code').value = e.target.result;
     const statusEl = document.getElementById('import-file-status');
-    document.getElementById('import-file-name').textContent = `✓ Loaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    document.getElementById('import-file-name').textContent = `Loaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
     statusEl.style.display = 'flex';
     document.getElementById('import-error').style.display = 'none';
     showToast(`Loaded ${file.name}`);
@@ -292,12 +292,12 @@ export function closeShareModal() {
 
 export function copyShareUrl() {
   const val = document.getElementById('share-url-input').value;
-  navigator.clipboard.writeText(val).then(() => flashButton(document.getElementById('copy-url-btn'), '✓ Copied!', 'Copy'));
+  navigator.clipboard.writeText(val).then(() => flashButton(document.getElementById('copy-url-btn'), 'Copied!', 'Copy'));
 }
 
 export function copyShareCode() {
   const val = document.getElementById('share-code-area').value;
-  navigator.clipboard.writeText(val).then(() => flashButton(document.getElementById('copy-code-btn'), '✓ Copied!', 'Copy Code'));
+  navigator.clipboard.writeText(val).then(() => flashButton(document.getElementById('copy-code-btn'), 'Copied!', 'Copy Code'));
 }
 
 export function loadShareCode() {

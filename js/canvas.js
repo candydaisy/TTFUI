@@ -556,7 +556,7 @@ function buildNodeHTML(id) {
 
   let detailRows = '';
   if (n.background) detailRows += detailRow('bg', 'var(--success)', n.background);
-  if (n.sfx) detailRows += detailRow('sfx', 'var(--warning)', '▶ ' + n.sfx);
+  if (n.sfx) detailRows += detailRow('sfx', 'var(--warning)', n.sfx);
   if (n.amb) detailRows += detailRow('amb', 'var(--info)', '~ ' + n.amb);
   if (n.showChars) detailRows += detailRow('show', 'var(--success)', splitList(n.showChars).join(', '));
   if (n.hideChars) detailRows += detailRow('hide', 'var(--danger)', splitList(n.hideChars).join(', '));
@@ -592,7 +592,7 @@ function buildNodeHTML(id) {
       choiceRowsHTML += `<div class="node-choice-row" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-right:14px;">
         <span style="font-size:9px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
         <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.text || '...')}</span>
-        ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">⚑${escapeHTML(c.set_flag)}</span>` : ''}
+        ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">flag: ${escapeHTML(c.set_flag)}</span>` : ''}
       </div>`;
       choicePortsHTML += `<div class="port out choice-port" data-node="${nodeAttr}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${escapeHTML(c.text)}"></div>`;
     });
@@ -768,7 +768,7 @@ export function renderConnections() {
           stroke: color, 'stroke-width': '1.2', fill: 'none', 'stroke-opacity': '0.55', 'stroke-dasharray': '4,5'
         } });
         // small flag label at midpoint
-        shapes.push({ key: key + '\u0000label', tag: 'text', text: '⚑ ' + flagName, attrs: {
+        shapes.push({ key: key + '\u0000label', tag: 'text', text: flagName, attrs: {
           x: mx, y: my - 6, 'text-anchor': 'middle', 'font-family': 'var(--font-mono)', 'font-size': '9',
           fill: color, 'fill-opacity': '0.8', style: 'pointer-events:none;'
         } });
@@ -907,13 +907,13 @@ function showCtxMenu(x, y, hasNode) {
   const delItem = menu.querySelector('[data-action="ctxDeleteNode"]');
 
   if (count > 1) {
-    dupItem.textContent = `⧉ Duplicate (${count}) (Ctrl+D)`;
-    copyItem.textContent = `📋 Copy (${count}) (Ctrl+C)`;
-    delItem.textContent = `🗑 Delete (${count}) (Del)`;
+    dupItem.textContent = `Duplicate (${count}) (Ctrl+D)`;
+    copyItem.textContent = `Copy (${count}) (Ctrl+C)`;
+    delItem.textContent = `Delete (${count}) (Del)`;
   } else {
-    dupItem.textContent = '⧉ Duplicate (Ctrl+D)';
-    copyItem.textContent = '📋 Copy Node (Ctrl+C)';
-    delItem.textContent = '🗑 Delete Node (Del)';
+    dupItem.textContent = 'Duplicate (Ctrl+D)';
+    copyItem.textContent = 'Copy Node (Ctrl+C)';
+    delItem.textContent = 'Delete Node (Del)';
   }
 
   document.getElementById('ctx-paste').style.display = state.clipboard ? 'block' : 'none';

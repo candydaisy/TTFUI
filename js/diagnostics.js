@@ -34,13 +34,13 @@ function updateDiagButton() {
   const warnings = countOf('warning');
 
   if (errors > 0) {
-    btn.textContent = `🛑 ${errors} Error${errors > 1 ? 's' : ''}`;
+    btn.textContent = `${errors} Error${errors > 1 ? 's' : ''}`;
     btn.style.color = 'var(--danger)';
   } else if (warnings > 0) {
-    btn.textContent = `⚠ ${warnings} Issue${warnings > 1 ? 's' : ''}`;
+    btn.textContent = `${warnings} Issue${warnings > 1 ? 's' : ''}`;
     btn.style.color = 'var(--warning)';
   } else {
-    btn.textContent = `✔ Graph Valid`;
+    btn.textContent = `Graph Valid`;
     btn.style.color = 'var(--success)';
   }
 }
@@ -94,20 +94,19 @@ function renderDiagList() {
 
   if (!filtered.length) {
     list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-dim);font-size:13px;">
-      ${total === 0 ? '🎉 All good! No issues detected in the graph.' : 'No issues found in this category.'}
+      ${total === 0 ? 'All good! No issues detected in the graph.' : 'No issues found in this category.'}
     </div>`;
     return;
   }
 
   list.innerHTML = filtered.map(issue => {
-    const icon = issue.type === 'error' ? '🛑' : (issue.type === 'warning' ? '⚠' : 'ℹ');
     return `
       <div class="diag-issue ${issue.type}" data-node-id="${escapeHTML(issue.nodeId)}">
         <div class="diag-issue-content">
-          <div class="diag-issue-title"><span>${icon}</span> ${escapeHTML(issue.title)}</div>
+          <div class="diag-issue-title">${escapeHTML(issue.title)}</div>
           <div class="diag-issue-desc">${escapeHTML(issue.desc)}</div>
         </div>
-        <div class="diag-node-tag">Node ${escapeHTML(issue.nodeId)} ↗</div>
+        <div class="diag-node-tag">Node ${escapeHTML(issue.nodeId)}</div>
       </div>
     `;
   }).join('');

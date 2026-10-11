@@ -502,7 +502,6 @@
     pointer-events: none;
     color: var(--text-dim);
   }
-  #empty-hint .big { font-size: 48px; margin-bottom: 10px; }
   #empty-hint p { font-size: 13px; line-height: 1.7; }
 
   /* ---- CONTEXT MENU ---- */
@@ -578,7 +577,6 @@
     .port.secret-out { right: -10px; }
 
     #empty-hint p { font-size: 12px; }
-    #empty-hint .big { font-size: 36px; }
   }
 
   /* touch pan hint */

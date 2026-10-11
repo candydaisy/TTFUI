@@ -57,12 +57,12 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 | Action | Shortcut / Gesture |
 |---|---|
 | **Add Node** | Right-click canvas > *Add Node Here* or `+ Node` button |
-| **Undo** | `Ctrl + Z` (or `↶ Undo` button) |
-| **Redo** | `Ctrl + Y` / `Ctrl + Shift + Z` (or `↷ Redo` button) |
+| **Undo** | `Ctrl + Z` (or Undo button) |
+| **Redo** | `Ctrl + Y` / `Ctrl + Shift + Z` (or Redo button) |
 | **Box / Marquee Select** | Click & drag on canvas background |
 | **Toggle Multi-Select** | `Shift + Click` on node |
 | **Select All Nodes** | `Ctrl + A` |
-| **Export / Save As** | `Ctrl + S` or `Export JSON ↗` button |
+| **Export / Save As** | `Ctrl + S` or Export JSON button |
 | **Search Nodes** | `Ctrl + F` (Search by speaker, dialogue, ID, flags) |
 | **Playtest Story** | `P` key or Play button |
 | **Advance Dialogue** | `Space` key in Playtest mode |

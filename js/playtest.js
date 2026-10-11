@@ -88,7 +88,7 @@ function renderPlaytestStep() {
     evaluateSecretCondition(n.secret, playtestState.weight, playtestState.flags);
   if (secretWillTrigger) {
     secretBanner.style.display = 'flex';
-    secretBanner.textContent = `⚡ Secret route condition met (${n.secret.condition})! Next step will divert to Node ${n.secret.next}.`;
+    secretBanner.textContent = `Secret route condition met (${n.secret.condition})! Next step will divert to Node ${n.secret.next}.`;
   } else {
     secretBanner.style.display = 'none';
   }
@@ -162,13 +162,13 @@ function renderPlaytestStep() {
     const nextTarget = getTarget(state, currId, 'out');
     const nextBtn = document.getElementById('pt-next-btn');
     if (secretWillTrigger) {
-      nextBtn.textContent = `Secret Route ▶ (Space)`;
+      nextBtn.textContent = `Secret Route (Space)`;
       nextBtn.className = 'tb-btn warning';
     } else if (nextTarget && state.nodes[nextTarget]) {
-      nextBtn.textContent = `Continue ▶ (Space)`;
+      nextBtn.textContent = `Continue (Space)`;
       nextBtn.className = 'tb-btn success';
     } else {
-      nextBtn.textContent = `End Flow ★`;
+      nextBtn.textContent = `End Flow`;
       nextBtn.className = 'tb-btn';
     }
   }
@@ -232,7 +232,7 @@ function renderPlaytestEnd() {
   document.getElementById('pt-advance-container').style.display = 'none';
 
   document.getElementById('pt-secret-banner').style.display = 'none';
-  document.getElementById('pt-speaker-name').textContent = '★ Story Completed';
+  document.getElementById('pt-speaker-name').textContent = 'Story Completed';
   document.getElementById('pt-emotion-tag').style.display = 'none';
 
   const flagsArr = Array.from(playtestState.flags);
@@ -245,7 +245,7 @@ function renderPlaytestEnd() {
       <strong>Collected Story Flags:</strong> ${flagsStr}
     </div>
     <div style="margin-top:16px;">
-      <button class="tb-btn success" data-action="restartPlaytest">↺ Play Again</button>
+      <button class="tb-btn success" data-action="restartPlaytest">Play Again</button>
       <button class="tb-btn" data-action="closePlaytest" style="margin-left:8px;">Exit Preview</button>
     </div>
   `;

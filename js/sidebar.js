@@ -35,10 +35,10 @@ export function renderSidebar() {
           Selected IDs: ${Array.from(state.selectedNodes).map(id => `<code style="background:var(--surface2);color:var(--text);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:10px;margin-right:4px;display:inline-block;margin-bottom:4px;">${escapeHTML(id)}</code>`).join('')}
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;">
-          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" data-action="duplicateSelectedNodes">⧉ Duplicate (${count})</button>
-          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" data-action="copySelectedNodes">📋 Copy (${count})</button>
+          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" data-action="duplicateSelectedNodes">Duplicate (${count})</button>
+          <button class="tb-btn" style="flex:1;font-size:11px;padding:7px;" data-action="copySelectedNodes">Copy (${count})</button>
         </div>
-        <button class="delete-node-btn" data-action="deleteSelectedNodes">🗑 Delete Selected (${count})</button>
+        <button class="delete-node-btn" data-action="deleteSelectedNodes">Delete Selected (${count})</button>
       </div>
     `;
     return;
@@ -52,8 +52,8 @@ export function renderSidebar() {
 
   content.innerHTML = `
     <div style="display:flex;gap:6px;margin-bottom:12px;">
-      <button class="tb-btn" style="flex:1;font-size:11px;padding:6px;" data-action="duplicateNode">⧉ Duplicate</button>
-      <button class="tb-btn" style="flex:1;font-size:11px;padding:6px;" data-action="copyNode">📋 Copy</button>
+      <button class="tb-btn" style="flex:1;font-size:11px;padding:6px;" data-action="duplicateNode">Duplicate</button>
+      <button class="tb-btn" style="flex:1;font-size:11px;padding:6px;" data-action="copyNode">Copy</button>
     </div>
     <div class="field-group">
       <div class="field-label">Node ID</div>
@@ -128,7 +128,7 @@ export function renderSidebar() {
     </div>
     <button class="add-choice-btn" data-action="addChoice">+ Add Choice</button>
 
-    <button class="delete-node-btn" data-action="deleteSelectedNodes">🗑 Delete Node</button>
+    <button class="delete-node-btn" data-action="deleteSelectedNodes">Delete Node</button>
   `;
 }
 

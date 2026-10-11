@@ -134,7 +134,7 @@ test('parseFlowGraph fills defaults and computes nextId', () => {
 });
 
 test('share codes round-trip unicode text', () => {
-  const data = { nodes: { 1: { text: 'ไม่เป็นไร… 😴 "quotes"' } }, nextId: 2 };
+  const data = { nodes: { 1: { text: 'ไม่เป็นไร… 𝄞 "quotes"' } }, nextId: 2 };
   assert.deepEqual(decodeShareCode(encodeShareCode(data)), data);
   assert.throws(() => decodeShareCode('%%%'));
 });
