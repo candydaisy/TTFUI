@@ -16,6 +16,7 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - Port-based visual connections for sequential dialogue, branch choices, and secret conditional paths.
   - Dashed flag links show where the selected node's story flags are set and checked.
   - Auto-layout button to organize complex narrative graphs cleanly.
+  - Minimap in the corner shows the whole graph (nodes in their character colors) and the current view; click or drag it to jump around. Toggle it with the Minimap button.
   - Multi-touch gestures (two-finger pan, pinch-to-zoom).
 
 - **Rich Dialogue and Staging Controls**
@@ -159,6 +160,7 @@ TTFUI/
 │   ├── characters.js   # Character presets window
 │   ├── history.js      # Undo / redo
 │   ├── search.js       # Ctrl+F node search
+│   ├── minimap.js      # Graph overview and quick navigation
 │   ├── diagnostics.js  # Story linter panel
 │   ├── playtest.js     # In-browser story preview
 │   ├── io.js           # Export, import, autosave, share links

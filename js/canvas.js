@@ -8,6 +8,7 @@ import { getSnapshot, pushHistory, commitSnapshot } from './history.js';
 import { renderSidebar } from './sidebar.js';
 import { markDirty } from './io.js';
 import { openPlaytest } from './playtest.js';
+import { scheduleMinimap } from './minimap.js';
 import {
   addNode, pasteNode, deleteNode, deleteSelectedNodes,
   copyNode, copySelectedNodes, duplicateNode, duplicateSelectedNodes
@@ -26,10 +27,10 @@ let ctxTarget = null;
 let ctxPos = { x: 0, y: 0 };
 let pendingMove = null; // latest mousemove, applied once per animation frame
 
-// Port centers relative to their node's top-left corner: nodeId -> { port: {x, y} }.
-// Ports sit at fixed offsets inside a node, so they're measured once per node
-// render instead of on every redraw (layout reads are what made dragging slow).
-const portOffsets = new Map();
+// Measured node geometry: nodeId -> { w, h, ports: { port: {x, y} } }, with port
+// centers relative to the node's top-left corner. Measured once per node render
+// instead of on every redraw (layout reads are what made dragging slow).
+const nodeGeometry = new Map();
 
 // SVG shapes currently drawn: key -> { el, sig }. Redraws update only shapes
 // whose attributes changed instead of re-parsing every connection.
@@ -57,6 +58,7 @@ export function applyTransform() {
   const c = document.getElementById('canvas');
   c.style.transform = `translate(${state.pan.x}px,${state.pan.y}px) scale(${state.zoom})`;
   document.getElementById('zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+  scheduleMinimap();
 }
 
 // Zoom keeping the canvas point at (mx, my) (relative to canvas-wrap) fixed.
@@ -83,6 +85,14 @@ export function screenToCanvas(clientX, clientY) {
     x: (clientX - rect.left - state.pan.x) / state.zoom,
     y: (clientY - rect.top - state.pan.y) / state.zoom
   };
+}
+
+// Center the view on a canvas point.
+export function panTo(x, y) {
+  const wrap = document.getElementById('canvas-wrap');
+  state.pan.x = wrap.clientWidth / 2 - x * state.zoom;
+  state.pan.y = wrap.clientHeight / 2 - y * state.zoom;
+  applyTransform();
 }
 
 export function centerOnNode(id) {
@@ -539,7 +549,7 @@ export function createNodeEl(id) {
 
 // Throw away all node elements and recreate them from state.nodes.
 export function rebuildNodeElements() {
-  portOffsets.clear();
+  nodeGeometry.clear();
   document.getElementById('nodes-layer').innerHTML = '';
   Object.keys(state.nodes).forEach(id => createNodeEl(id));
 }
@@ -629,7 +639,7 @@ export function updateNodeEl(id) {
   el.style.top = n.y + 'px';
   el.innerHTML = buildNodeHTML(id);
   attachNodeEvents(el, id);
-  portOffsets.delete(id); // ports may have changed (choices / secret route)
+  nodeGeometry.delete(id); // size and ports may have changed
 }
 
 function setupPorts(el, id) {
@@ -669,31 +679,34 @@ function setupPorts(el, id) {
 // ================================
 // CONNECTIONS
 // ================================
-function measurePorts(nodeId) {
+function getNodeGeometry(nodeId) {
+  let geo = nodeGeometry.get(nodeId);
+  if (geo) return geo;
   const el = document.getElementById('node-' + nodeId);
   if (!el) return null;
-  const offsets = {};
+  geo = { w: el.offsetWidth, h: el.offsetHeight, ports: {} };
   el.querySelectorAll('.port').forEach(port => {
     // offsetLeft/Top are relative to the node's padding box, so add its border
-    offsets[port.dataset.port] = {
+    geo.ports[port.dataset.port] = {
       x: el.clientLeft + port.offsetLeft + port.offsetWidth / 2,
       y: el.clientTop + port.offsetTop + port.offsetHeight / 2
     };
   });
-  return offsets;
+  nodeGeometry.set(nodeId, geo);
+  return geo;
+}
+
+// Node size in canvas pixels, or null if it has no element.
+export function getNodeSize(nodeId) {
+  const geo = getNodeGeometry(nodeId);
+  return geo ? { w: geo.w, h: geo.h } : null;
 }
 
 // Port center in canvas coordinates.
 function getPortCenter(nodeId, portType) {
   const n = state.nodes[nodeId];
-  if (!n) return null;
-  let offsets = portOffsets.get(nodeId);
-  if (!offsets) {
-    offsets = measurePorts(nodeId);
-    if (!offsets) return null;
-    portOffsets.set(nodeId, offsets);
-  }
-  const o = offsets[portType];
+  const geo = n && getNodeGeometry(nodeId);
+  const o = geo && geo.ports[portType];
   return o ? { x: n.x + o.x, y: n.y + o.y } : null;
 }
 
@@ -804,6 +817,7 @@ export function renderConnections() {
   });
 
   syncShapes(svg, shapes);
+  scheduleMinimap(); // called whenever nodes move, change, or the selection changes
 }
 
 // Make the SVG contain exactly `shapes`, touching only what changed.

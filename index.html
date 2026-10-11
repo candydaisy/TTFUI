@@ -23,6 +23,7 @@
   <span id="zoom-label">100%</span>
   <button class="tb-btn" data-action="zoomOut">−</button>
   <button class="tb-btn" data-action="resetZoom">Reset</button>
+  <button class="tb-btn" id="minimap-btn" data-action="toggleMinimap" title="Show or hide the minimap">Minimap</button>
   <div class="tb-sep"></div>
   <button class="tb-btn" data-action="clearAll" style="color:var(--danger)">Clear</button>
   <div class="tb-sep"></div>
@@ -53,6 +54,7 @@
     <div id="empty-hint">
       <p>Right-click to add a node<br>or press <strong>+ Node</strong> above</p>
     </div>
+    <div id="minimap" title="Minimap: click or drag to move the view"><canvas id="minimap-canvas"></canvas></div>
     <div id="touch-hint">2 fingers to pan · pinch to zoom</div>
     <!-- SEARCH BAR -->
     <div id="search-bar" style="display:none;">

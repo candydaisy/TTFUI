@@ -987,3 +987,30 @@
     font-size: 13px;
     line-height: 1.6;
   }
+
+  /* ---- MINIMAP ---- */
+  #minimap {
+    display: none;
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 220px;
+    height: 150px;
+    background: rgba(30, 31, 34, 0.88);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    z-index: 60;
+  }
+  #minimap-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .tb-btn.active { color: var(--accent); border-color: rgba(88,101,242,0.5); }
+  @media (max-width: 768px) {
+    #minimap { width: 150px; height: 100px; right: 8px; bottom: 8px; }
+  }

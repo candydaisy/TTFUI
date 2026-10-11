@@ -13,6 +13,7 @@ import {
   pasteNode, clearAll, autoLayout, loadExample
 } from './nodes.js';
 import { setupSidebarEvents, addChoice, removeChoice } from './sidebar.js';
+import { setupMinimap, toggleMinimap } from './minimap.js';
 import {
   setupCharactersEvents, openCharacters, closeCharacters, addCharacter, removeCharacter, detectCharactersFromStory
 } from './characters.js';
@@ -45,6 +46,7 @@ const ACTIONS = {
   zoomIn: () => zoomIn(),
   zoomOut: () => zoomOut(),
   resetZoom: () => resetZoom(),
+  toggleMinimap: () => toggleMinimap(),
   clearAll: () => clearAll(),
   toggleDiagnostics: () => toggleDiagnostics(),
   openShareModal: () => openShareModal(),
@@ -218,6 +220,7 @@ setupFieldHistory('sidebar-content');
 setupFieldHistory('characters-list');
 setupSidebarEvents();
 setupCharactersEvents();
+setupMinimap();
 setupDiagnosticsEvents();
 setupPlaytestEvents();
 setupIOEvents();
