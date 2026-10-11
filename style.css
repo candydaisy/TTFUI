@@ -38,13 +38,14 @@
 
   /* ---- TOOLBAR ---- */
   #toolbar {
-    height: 52px;
+    min-height: 52px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex;
+    flex-wrap: wrap; /* narrow windows get a second row instead of squashed or hidden buttons */
     align-items: center;
-    padding: 0 16px;
-    gap: 10px;
+    padding: 8px 16px;
+    gap: 6px 8px;
     z-index: 100;
     flex-shrink: 0;
   }
@@ -67,6 +68,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
   }
   .tb-btn:hover { background: var(--surface3); color: var(--text); }
   .tb-btn.danger:hover { background: var(--danger); color: #fff; }
