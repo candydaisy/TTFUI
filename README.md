@@ -73,29 +73,26 @@ Visit the deployed web application at:
 [https://candydaisy.github.io/TTFUI/](https://candydaisy.github.io/TTFUI/)
 
 ### Run Locally
-Since TTFUI is built using standard web technologies (vanilla HTML5, CSS3, and JavaScript), no build tools or package managers are required.
+TTFUI is built with plain HTML, CSS, and JavaScript (ES modules), so there is no build step and nothing to install.
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/candydaisy/TTFUI.git
    cd TTFUI
    ```
-2. Open `index.html` directly in any modern web browser:
-   ```bash
-   # On Linux
-   xdg-open index.html
-
-   # On macOS
-   open index.html
-
-   # On Windows
-   start index.html
-   ```
-3. Or serve with any lightweight static server:
+2. Serve the folder with any static web server:
    ```bash
    python3 -m http.server 8000
    # Open http://localhost:8000
    ```
+   Opening `index.html` directly from disk (`file://`) does not work, because browsers block ES modules loaded from local files.
+
+### Run Tests
+The graph logic (export/import, diagnostics, playtest conditions, layout, share codes) has unit tests that run on Node.js 18+ with no dependencies:
+
+```bash
+npm test
+```
 
 ---
 
@@ -141,11 +138,25 @@ The exported `flow_graph` JSON represents narrative nodes structured as follows:
 
 ```
 TTFUI/
-├── index.html        # Main application layout, canvas layers, and modal UI
-├── style.css         # Dark theme styling, graph node components, and HUD
-├── script.js         # Graph state management, diagnostics, canvas rendering, playtest engine
-├── LICENSE           # MIT License
-└── README.md         # Documentation & guide
+├── index.html          # Application layout, canvas layers, and modal UI
+├── style.css           # Dark theme styling, graph node components, and HUD
+├── js/
+│   ├── main.js         # Entry point: startup, data-action button wiring, keyboard shortcuts
+│   ├── state.js        # Shared editor state (nodes, connections, selection, view)
+│   ├── graph.js        # Pure graph logic: export/import, diagnostics, layout, share codes
+│   ├── canvas.js       # Pan/zoom, mouse & touch interaction, node rendering, context menu
+│   ├── nodes.js        # Node operations: add, delete, copy, paste, duplicate, layout
+│   ├── sidebar.js      # Properties panel and choice editor
+│   ├── history.js      # Undo / redo
+│   ├── search.js       # Ctrl+F node search
+│   ├── diagnostics.js  # Story linter panel
+│   ├── playtest.js     # In-browser story preview
+│   ├── io.js           # Export, import, autosave, share links
+│   └── utils.js        # HTML escaping, toasts
+├── tests/              # Unit tests (node --test)
+├── package.json        # Only for `npm test`; no dependencies
+├── LICENSE             # MIT License
+└── README.md           # Documentation & guide
 ```
 
 ---
