@@ -25,7 +25,7 @@ import {
   setupPlaytestEvents, isPlaytestOpen, openPlaytest, closePlaytest, restartPlaytest, playtestNext
 } from './playtest.js';
 import {
-  setupIOEvents, exportCode, closeModal, saveCodeToFile, copyCode, loadFromStorage,
+  setupIOEvents, setupModeSelect, exportCode, closeModal, saveCodeToFile, copyCode, loadFromStorage,
   openImport, closeImport, pickImportFile, clearImportFile, runImport,
   openShareModal, closeShareModal, copyShareUrl, copyShareCode, loadShareCode, loadShareFromURL
 } from './io.js';
@@ -224,6 +224,7 @@ setupMinimap();
 setupDiagnosticsEvents();
 setupPlaytestEvents();
 setupIOEvents();
+setupModeSelect();
 setupActions();
 window.addEventListener('keydown', onEditorKeydown);
 window.addEventListener('keydown', onOverlayKeydown);

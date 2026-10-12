@@ -13,6 +13,7 @@ export const state = {
   nextId: 1,
   clipboard: null, // { nodes: [...], connections: [...] }
   characters: [], // character presets: { name, color, emotions }
+  mode: 'kay', // character mode (see MODES in graph.js): decides meters, choice types, extra fields
 };
 
 export function genId() {

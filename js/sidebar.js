@@ -3,13 +3,38 @@
 // ================================
 import { state } from './state.js';
 import { escapeHTML } from './utils.js';
-import { emotionsFor } from './graph.js';
+import { emotionsFor, getMode, meterNames, meterKey, conditionsFor, createChoice } from './graph.js';
 import { pushHistory } from './history.js';
 import { updateNodeEl, renderConnections } from './canvas.js';
 import { markDirty } from './io.js';
 
 const option = (value, current, label = value) =>
   `<option value="${escapeHTML(value)}" ${current === value ? 'selected' : ''}>${escapeHTML(label)}</option>`;
+
+// Options for a select, keeping a current value that isn't in the list (e.g. a
+// condition from another mode) so it's visible instead of silently changed.
+const optionsKeeping = (values, current) =>
+  [...values, ...(current && !values.includes(current) ? [current] : [])].map(v => option(v, current)).join('');
+
+// Fields only some modes read (see MODES in graph.js).
+function modeFieldsHTML(n) {
+  const mode = getMode(state.mode);
+  let html = '';
+  if (mode.nodeKeys.includes('real_text')) {
+    html += `
+    <div class="field-group">
+      <div class="field-label">Real Text (self-edit)</div>
+      <textarea class="field-input" id="f-real" rows="2" placeholder="What they really want to say. While the mask is high, this is typed, deleted, and replaced by Dialog Text.">${escapeHTML(n.realText || '')}</textarea>
+    </div>`;
+  }
+  if (mode.nodeKeys.includes('timed')) {
+    html += `
+    <div class="field-group">
+      <label class="field-check"><input type="checkbox" id="f-timed" ${n.timed ? 'checked' : ''}> Timed choice (running out picks the "perform" choice)</label>
+    </div>`;
+  }
+  return html ? `<div class="field-section">${escapeHTML(mode.label)}</div>${html}` : '';
+}
 
 // Emotion choices follow the speaker's character preset. A value that isn't
 // in the list (e.g. from an imported file) is still shown so it isn't lost.
@@ -100,17 +125,23 @@ export function renderSidebar() {
       <div class="field-label">Ambience (looping)</div>
       <input class="field-input" id="f-amb" value="${escapeHTML(n.amb)}" placeholder="bedroom, school...">
     </div>
+    <div class="field-group">
+      <div class="field-label">Voice (stops at the next line)</div>
+      <input class="field-input" id="f-voice" value="${escapeHTML(n.voice || '')}" placeholder="kay_wake_3">
+    </div>
+
+    ${modeFieldsHTML(n)}
 
     <div class="field-section">Secret Route</div>
     <div class="field-group">
       <div class="field-label">Condition</div>
       <select class="field-input" id="f-secret-cond">
         <option value="" ${!n.secret.condition?'selected':''}>- none -</option>
-        ${['weight_above', 'weight_below', 'flag_true', 'flag_false'].map(v => option(v, n.secret.condition)).join('')}
+        ${optionsKeeping(conditionsFor(state.mode), n.secret.condition)}
       </select>
     </div>
     <div class="field-group">
-      <div class="field-label">Value (for weight conditions)</div>
+      <div class="field-label">Value (for ${meterNames(state.mode).join(' / ')} conditions)</div>
       <input class="field-input" id="f-secret-val" value="${escapeHTML(n.secret.value)}" placeholder="e.g. 20">
     </div>
     <div class="field-group">
@@ -133,6 +164,9 @@ export function renderSidebar() {
 }
 
 function buildChoiceHTML(i, c) {
+  const mode = getMode(state.mode);
+  const meterInputs = meterNames(state.mode).map(m => `
+        <input class="field-input" style="width:64px" type="number" title="${escapeHTML(mode.meters[m].label)} change" placeholder="${escapeHTML(m)}" value="${escapeHTML(c[meterKey(m)] || 0)}" data-choice-key="${meterKey(m)}">`).join('');
   return `
     <div class="choice-item" id="choice-item-${i}" data-index="${i}">
       <div class="choice-row">
@@ -141,11 +175,13 @@ function buildChoiceHTML(i, c) {
       </div>
       <div class="choice-row">
         <select class="field-input" style="flex:1" data-choice-key="type">
-          ${['helpful', 'neutral', 'honest'].map(v => option(v, c.type)).join('')}
+          ${optionsKeeping(mode.choiceTypes, c.type)}
         </select>
       </div>
-      <div class="choice-row">
-        <input class="field-input" style="width:70px" type="number" placeholder="weight" value="${escapeHTML(c.weight_change||0)}" data-choice-key="weight_change">
+      <div class="choice-row choice-meters">
+        ${meterNames(state.mode).map(m => `<span class="choice-meter-label">${escapeHTML(mode.meters[m].label)}</span>`).join('')}
+      </div>
+      <div class="choice-row">${meterInputs}
         <input class="field-input" style="flex:1;margin-left:4px" placeholder="next node" value="${escapeHTML(c.next)}" data-choice-key="next">
       </div>
       <div class="choice-row">
@@ -166,6 +202,8 @@ const FIELDS = {
   'f-expr':        (n, v) => { n.expression = v; },
   'f-sfx':         (n, v) => { n.sfx = v; },
   'f-amb':         (n, v) => { n.amb = v; },
+  'f-voice':       (n, v) => { n.voice = v; },
+  'f-real':        (n, v) => { n.realText = v; },
   'f-secret-cond': (n, v) => { n.secret.condition = v; },
   'f-secret-val':  (n, v) => { n.secret.value = v; },
   'f-secret-flag': (n, v) => { n.secret.flag = v; },
@@ -187,7 +225,15 @@ export function setupSidebarEvents() {
     if (key) {
       if ((el.tagName === 'SELECT') !== (e.type === 'change')) return;
       const i = Number(el.closest('.choice-item').dataset.index);
-      updateChoice(i, key, key === 'weight_change' ? (parseFloat(el.value) || 0) : el.value);
+      updateChoice(i, key, key.endsWith('_change') ? (parseFloat(el.value) || 0) : el.value);
+      return;
+    }
+
+    if (el.id === 'f-timed' && e.type === 'change') {
+      pushHistory();
+      n.timed = el.checked;
+      updateNodeEl(state.selectedNode);
+      markDirty();
       return;
     }
 
@@ -261,7 +307,7 @@ function renameNode(oldId, newId) {
 export function addChoice() {
   if (!state.selectedNode || !state.nodes[state.selectedNode]) return;
   pushHistory();
-  state.nodes[state.selectedNode].choices.push({ text:'', type:'neutral', weight_change:0, next:'', set_flag:'' });
+  state.nodes[state.selectedNode].choices.push(createChoice(state.mode));
   renderSidebar();
   updateNodeEl(state.selectedNode);
   markDirty();

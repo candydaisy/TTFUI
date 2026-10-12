@@ -32,21 +32,36 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - **Detect from Story** builds presets from the speakers you've already written. Importing a file does this automatically.
   - Presets are saved with your project (auto-save and share links) but are not added to the exported JSON, so the game format is unchanged.
 
+- **Character Modes (same as the game)**
+  - Each character's story follows their mode from the game (`Scripts/StoryEngine/modes/` in Untitled Illness). Pick it in the toolbar; importing a story picks it automatically.
+  - **Kay (KayMode):** one `weight` meter, `weight_change` on choices, helpful choices lock at 80+.
+  - **Elysia (ElysiaMode):** hidden `mask` and `energy` meters, `mask_change` / `energy_change` on choices, a `perform` choice type, **Real Text** (self-edit) and **Timed** choices, and honest choices lock when energy < 20 or mask > 85.
+  - The sidebar, secret conditions (`mask_below`, `energy_above`, ...), node cards, diagnostics and playtest all follow the mode.
+  - New modes go in `MODES` in `js/graph.js`; keep it in sync with the mode's `INFO` in Godot.
+
 - **Branching and Secret Routes**
   - **Choice System:** Multiple player dialogue choices with customized reply types, weight changes, next node targets, and flag setters.
   - **Secret Conditions:** Conditional branching based on flag checks or weight thresholds (e.g., `weight_below`, `has_flag`) diverting the story to alternate routes.
 
 - **Interactive Playtest Mode**
   - Test and experience your dialogue directly in the browser without launching a game engine.
-  - Live HUD displaying real-time speaker names, emotion tags, weight changes, active flags, and scene staging cues.
+  - Live HUD displaying real-time speaker names, emotion tags, the mode's meters, active flags, and scene staging cues.
+  - Plays by the game's rules: locked choices, self-edit lines (the deleted line is shown crossed out), and timed choices that pick the `perform` answer when time runs out.
   - Advance dialogue with `Space` or click interactive choice buttons.
 
 - **Story Diagnostics and Linter**
   - Automated graph analysis highlighting missing target nodes, orphan dialogue, dead ends, or broken conditions.
   - Filter by Errors, Warnings, and Info with one-click navigation to problem nodes.
 
+- **Relationship Web Editor** (`relations.html`, the **Relationships** button)
+  - Edits `Story/relationships.json`, the file behind the game's relationship web (Gallery screen), with the same graph: playable characters in their color, everyone else grey.
+  - Click a character to edit them and their links ("Ulyn is Kay's... best friend"). Shift+click another character to link them.
+  - **Open Story Folder** loads `relationships.json` and checks every `<Route>/flow_graph.json` for speakers missing from the web.
+  - Undo / redo, autosave, and export in the same layout as the file in the game repo.
+
 - **Import and Export (Game Engine Ready)**
-  - Export clean `flow_graph` JSON data ready for integration with Godot or custom game engines.
+  - Export `flow_graph` JSON in the same layout as `Story/<Name>/flow_graph.json` (tabs, one choice per line), so an imported story exports back to the identical file and git diffs only show real changes.
+  - Keys the editor doesn't know about are kept, so nothing is lost on export.
   - Import existing `.json` files via drag-and-drop or file upload.
   - Built-in example story (`Load Example`) for quick demonstration.
   - Automatic persistence to browser LocalStorage so work is never lost.
@@ -98,7 +113,7 @@ TTFUI is built with plain HTML, CSS, and JavaScript (ES modules), so there is no
    Opening `index.html` directly from disk (`file://`) does not work, because browsers block ES modules loaded from local files.
 
 ### Run Tests
-The graph logic (export/import, diagnostics, playtest conditions, layout, share codes) has unit tests that run on Node.js 18+ with no dependencies:
+The graph logic (export/import round-trips, character modes, diagnostics, playtest rules, layout, share codes) and the relationship web logic have unit tests that run on Node.js 18+ with no dependencies:
 
 ```bash
 npm test
@@ -108,39 +123,56 @@ npm test
 
 ## JSON Data Structure
 
-The exported `flow_graph` JSON represents narrative nodes structured as follows:
+The exported `flow_graph` JSON is the game's story format. The full reference is in the game repo's `CONTRIBUTING.md` ("Story file structure").
 
 ```json
 {
-  "1": {
-    "speaker": "K",
-    "emotion": "tired",
-    "text": "i hate school mornings.",
-    "background": "bedroom",
-    "sfx": "alarm",
-    "amb": "bedroom_ambience",
-    "showChars": "K",
-    "hideChars": "Friend",
-    "expression": "K:tired",
-    "choices": [
-      {
-        "text": "No. I'm exhausted.",
-        "type": "honest",
-        "weight_change": -15,
-        "next": "2",
-        "set_flag": "was_honest"
-      }
-    ],
-    "secret": {
-      "condition": "weight_below",
-      "value": "1",
-      "flag": "",
-      "next": "secret_route_1"
-    },
-    "next": "3"
-  }
+	"start": {
+		"speaker": "Kay",
+		"emotion": "tired",
+		"text": "Monday...",
+		"next": "wake_2",
+		"background": "Kay's room1",
+		"show_characters": ["Kay"],
+		"expression": {"Kay": "School"},
+		"sfx": "Alarm",
+		"amb": "Bedroom",
+		"voice": "kay_wake_1"
+	},
+
+	"wake_2": {
+		"speaker": "Kay",
+		"text": "What should I do first?",
+		"choices": [
+			{"text": "Take a nap", "type": "neutral", "weight_change": 5, "next": "nap_1"},
+			{"text": "Get up", "type": "honest", "weight_change": -5, "next": "up_1", "set_flag": "GotUp"}
+		],
+		"secret": {"condition": "weight_below", "value": 35, "next": "endA_1"}
+	}
 }
 ```
+
+Elysia's stories use her mode's keys instead of `weight_change`:
+
+```json
+"mid_5": {
+	"speaker": "Elysia",
+	"text": "\"I know. Sorry.\"",
+	"real_text": "\"I'm just tired, Mom.\"",
+	"next": "mid_6"
+},
+
+"call_7": {
+	"speaker": "Ploy",
+	"text": "\"Right??\"",
+	"timed": true,
+	"choices": [
+		{"text": "Stay on the call", "type": "perform", "mask_change": 5, "energy_change": -10, "next": "call_stay_1"}
+	]
+}
+```
+
+Secret conditions are `flag_true` / `flag_false` (with `flag`) or `<meter>_above` / `<meter>_below` (with `value`) for the mode's meters.
 
 ---
 
@@ -148,12 +180,13 @@ The exported `flow_graph` JSON represents narrative nodes structured as follows:
 
 ```
 TTFUI/
-├── index.html          # Application layout, canvas layers, and modal UI
+├── index.html          # Flow graph editor: layout, canvas layers, and modal UI
+├── relations.html      # Relationship web editor
 ├── style.css           # Dark theme styling, graph node components, and HUD
 ├── js/
 │   ├── main.js         # Entry point: startup, data-action button wiring, keyboard shortcuts
 │   ├── state.js        # Shared editor state (nodes, connections, selection, view)
-│   ├── graph.js        # Pure graph logic: export/import, diagnostics, layout, share codes
+│   ├── graph.js        # Pure graph logic: character modes, export/import, diagnostics, layout, share codes
 │   ├── canvas.js       # Pan/zoom, mouse & touch interaction, node rendering, context menu
 │   ├── nodes.js        # Node operations: add, delete, copy, paste, duplicate, layout
 │   ├── sidebar.js      # Properties panel and choice editor
@@ -164,6 +197,8 @@ TTFUI/
 │   ├── diagnostics.js  # Story linter panel
 │   ├── playtest.js     # In-browser story preview
 │   ├── io.js           # Export, import, autosave, share links
+│   ├── relations-data.js # Pure relationship web logic: read, check, edit, write, layout
+│   ├── relations.js    # Relationship web editor UI
 │   └── utils.js        # HTML escaping, toasts
 ├── tests/              # Unit tests (node --test)
 ├── package.json        # Only for `npm test`; no dependencies

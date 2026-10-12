@@ -3,7 +3,7 @@
 // ================================
 import { state, lastSelectedId } from './state.js';
 import { escapeHTML } from './utils.js';
-import { splitList, findCharacter } from './graph.js';
+import { splitList, findCharacter, meterNames, meterKey, changeTone } from './graph.js';
 import { getSnapshot, pushHistory, commitSnapshot } from './history.js';
 import { renderSidebar } from './sidebar.js';
 import { markDirty } from './io.js';
@@ -568,6 +568,8 @@ function buildNodeHTML(id) {
   if (n.background) detailRows += detailRow('bg', 'var(--success)', n.background);
   if (n.sfx) detailRows += detailRow('sfx', 'var(--warning)', n.sfx);
   if (n.amb) detailRows += detailRow('amb', 'var(--info)', '~ ' + n.amb);
+  if (n.voice) detailRows += detailRow('voice', 'var(--accent-light)', n.voice);
+  if (n.realText) detailRows += detailRow('real', 'var(--warning)', n.realText);
   if (n.showChars) detailRows += detailRow('show', 'var(--success)', splitList(n.showChars).join(', '));
   if (n.hideChars) detailRows += detailRow('hide', 'var(--danger)', splitList(n.hideChars).join(', '));
   if (n.expression) {
@@ -602,14 +604,20 @@ function buildNodeHTML(id) {
       choiceRowsHTML += `<div class="node-choice-row" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-right:14px;">
         <span style="font-size:9px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
         <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.text || '...')}</span>
+        ${meterNames(state.mode).map(m => {
+          const v = Number(c[meterKey(m)]) || 0;
+          return v ? `<span class="node-choice-delta ${changeTone(state.mode, m, v)}" title="${escapeHTML(m)}">${escapeHTML(m[0])}${v > 0 ? '+' : ''}${v}</span>` : '';
+        }).join('')}
         ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">flag: ${escapeHTML(c.set_flag)}</span>` : ''}
       </div>`;
       choicePortsHTML += `<div class="port out choice-port" data-node="${nodeAttr}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${escapeHTML(c.text)}"></div>`;
     });
   }
 
-  const tagsHTML = (secretBadge || choicesBadge)
-    ? `<div class="node-tags" style="margin-top:5px;">${secretBadge}${choicesBadge}</div>`
+  const timedBadge = n.timed ? `<span class="tag tag-timed">timed</span>` : '';
+  const editBadge = n.realText ? `<span class="tag tag-timed">self-edit</span>` : '';
+  const tagsHTML = (secretBadge || choicesBadge || timedBadge || editBadge)
+    ? `<div class="node-tags" style="margin-top:5px;">${secretBadge}${choicesBadge}${timedBadge}${editBadge}</div>`
     : '';
 
   return `

@@ -4,8 +4,8 @@
 import { state } from './state.js';
 import { showToast } from './utils.js';
 import {
-  buildExportData, extractDictBody, parseFlowGraph, buildConnections,
-  encodeShareCode, decodeShareCode, normalizeCharacters, detectCharacters
+  buildExportData, formatFlowGraph, extractDictBody, parseFlowGraph, buildConnections,
+  encodeShareCode, decodeShareCode, normalizeCharacters, detectCharacters, MODES, DEFAULT_MODE
 } from './graph.js';
 import { pushHistory, clearHistory } from './history.js';
 import {
@@ -59,7 +59,7 @@ function flashButton(btn, text, restoreTo = btn.textContent) {
 // EXPORT (JSON)
 // ================================
 export function exportCode() {
-  document.getElementById('output-code').value = JSON.stringify(buildExportData(state), null, 2);
+  document.getElementById('output-code').value = formatFlowGraph(buildExportData(state));
   const hintEl = document.getElementById('export-browser-hint');
   if (hintEl) {
     hintEl.style.display = (!window.showSaveFilePicker) ? 'block' : 'none';
@@ -141,8 +141,8 @@ export function markDirty() {
 
 function saveToStorage() {
   try {
-    const { nodes, connections, characters, pan, zoom, nextId } = state;
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, pan, zoom, nextId, savedAt: Date.now() }));
+    const { nodes, connections, characters, mode, pan, zoom, nextId } = state;
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, mode, pan, zoom, nextId, savedAt: Date.now() }));
     setSaveStatus('saved', 'saved');
   } catch (e) {
     setSaveStatus('error', 'save failed');
@@ -159,6 +159,7 @@ export function loadFromStorage() {
     state.nodes = data.nodes;
     state.connections = data.connections || [];
     state.characters = normalizeCharacters(data.characters);
+    setMode(data.mode);
     state.pan = data.pan || { x: 60, y: 60 };
     state.zoom = data.zoom || 1;
     state.nextId = data.nextId || 1;
@@ -248,6 +249,8 @@ export function runImport() {
   pushHistory();
   state.nodes = parsed.nodes;
   state.nextId = parsed.nextId;
+  setMode(parsed.mode);
+  showToast(`Imported as ${MODES[state.mode].label}`);
   state.connections = buildConnections(state.nodes);
   // the export format has no character data, so pick up any new speakers
   state.characters = detectCharacters(state.nodes, state.characters);
@@ -272,7 +275,7 @@ function showImportError(msg) {
 // SHARE - URL & CLIPBOARD
 // ================================
 export function openShareModal() {
-  const code = encodeShareCode({ nodes: state.nodes, connections: state.connections, characters: state.characters, nextId: state.nextId });
+  const code = encodeShareCode({ nodes: state.nodes, connections: state.connections, characters: state.characters, mode: state.mode, nextId: state.nextId });
   document.getElementById('share-code-area').value = code;
 
   // URL: current page URL + #share=<code>
@@ -321,6 +324,7 @@ function applyShareData(data) {
   state.nodes = data.nodes || {};
   state.connections = data.connections || [];
   state.characters = normalizeCharacters(data.characters);
+  setMode(data.mode);
   state.nextId = data.nextId || 1;
   setSelection([]);
   rebuildNodeElements();
@@ -329,6 +333,31 @@ function applyShareData(data) {
   renderSidebar();
   updateEmptyHint();
   markDirty();
+}
+
+// ================================
+// MODE (which character's rules the story follows)
+// ================================
+export function setMode(mode) {
+  state.mode = MODES[mode] ? mode : DEFAULT_MODE;
+  const select = document.getElementById('mode-select');
+  if (select) select.value = state.mode;
+}
+
+export function setupModeSelect() {
+  const select = document.getElementById('mode-select');
+  select.innerHTML = Object.entries(MODES)
+    .map(([name, m]) => `<option value="${name}">${m.label}</option>`).join('');
+  select.value = state.mode;
+  select.addEventListener('change', () => {
+    pushHistory();
+    setMode(select.value);
+    rebuildNodeElements();
+    renderConnections();
+    renderSidebar();
+    markDirty();
+    showToast(`Mode: ${MODES[state.mode].label}`);
+  });
 }
 
 // Load a graph from a #share=<code> URL hash, if present.

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Relationship Web Editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <div class="logo">WEB</div>
+  <a class="tb-btn tb-link" href="index.html" title="Back to the flow graph editor">Flow Graph</a>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-action="addCharacter">+ Character</button>
+  <button class="tb-btn" id="undo-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>Undo</button>
+  <button class="tb-btn" id="redo-btn" data-action="redo" title="Redo (Ctrl+Y)" disabled>Redo</button>
+  <button class="tb-btn" data-action="relayout" title="Shuffle and let the web settle again">Re-layout</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="web-issues-btn" data-action="showIssues" title="Problems in the web">No Issues</button>
+  <div style="flex:1"></div>
+  <span id="save-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);">saved</span>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" data-action="openFolder" title="Pick the game's Story folder: loads relationships.json and checks every flow_graph.json for missing speakers">Open Story Folder</button>
+  <button class="tb-btn" data-action="openImport">Import JSON</button>
+  <button class="tb-btn" data-action="exportWeb" style="border-color:rgba(88,101,242,0.4);color:var(--accent)">Export JSON</button>
+  <input type="file" id="web-file-input" accept=".json" style="display:none;">
+  <input type="file" id="web-folder-input" webkitdirectory multiple style="display:none;">
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="web-canvas"></canvas>
+    <div id="web-hint">Click a character to edit them. Shift+click another to link them.<br>Drag to move · drag empty space to pan · scroll to zoom</div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-header">Properties</div>
+    <div id="sidebar-content"></div>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-header">
+      <span>Export JSON - relationships.json</span>
+      <button id="modal-close" data-action="closeExport">✕</button>
+    </div>
+    <div id="modal-body">
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Save over <code>Story/relationships.json</code> in the game. Same layout as the file in the repo.</div>
+      <textarea id="output-code" readonly spellcheck="false"></textarea>
+    </div>
+    <div id="modal-footer">
+      <button class="tb-btn" data-action="closeExport">Close</button>
+      <button class="tb-btn" data-action="downloadWeb">Download</button>
+      <button class="tb-btn" data-action="saveWebAs" style="border-color:rgba(88,101,242,0.5);color:var(--accent);">Save As...</button>
+      <button class="tb-btn success" data-action="copyWeb">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
+  <script type="module" src="js/relations.js"></script>
+</body>
+</html>

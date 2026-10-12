@@ -9,11 +9,124 @@ export function createNode(id, x, y) {
   return {
     id, x, y,
     speaker: '', emotion: '', text: 'New line.',
-    background: '', sfx: '', amb: '',
+    realText: '', timed: false,
+    background: '', sfx: '', amb: '', voice: '',
     showChars: '', hideChars: '', expression: '',
     secret: { condition: '', value: '', flag: '', next: '' },
-    choices: []
+    choices: [],
+    extra: {} // keys this editor doesn't know, kept so exporting never loses them
   };
+}
+
+export function createChoice(mode) {
+  const c = { text: '', type: 'neutral', next: '', set_flag: '', extra: {} };
+  meterNames(mode).forEach(m => { c[meterKey(m)] = 0; });
+  return c;
+}
+
+// ================================
+// CHARACTER MODES
+// ================================
+// Mirrors Scripts/StoryEngine/modes/*.gd in the game. A mode decides which
+// meters a story has (each choice changes them with "<meter>_change"), which
+// choice types exist, which extra node keys it reads, and which choices lock.
+// Keep this in sync with each mode's INFO in Godot.
+export const MODES = {
+  kay: {
+    label: 'Kay (KayMode)',
+    meters: { weight: { start: 55, label: 'Weight', good: -1 } }, // good: which direction helps the character
+    choiceTypes: ['neutral', 'honest', 'helpful'],
+    nodeKeys: [],
+    // helpful choices lock at CRITICAL (weight 80+)
+    isLocked: (c, m) => c.type === 'helpful' && m.weight >= 80,
+  },
+  elysia: {
+    label: 'Elysia (ElysiaMode)',
+    meters: { mask: { start: 60, label: 'Mask', good: -1 }, energy: { start: 60, label: 'Energy', good: 1 } },
+    choiceTypes: ['neutral', 'honest', 'helpful', 'perform'],
+    nodeKeys: ['real_text', 'timed'],
+    // honest choices lock when energy < 20 or mask > 85
+    isLocked: (c, m) => c.type === 'honest' && (m.energy < 20 || m.mask > 85),
+    selfEditMask: 60, // at or above: real_text is typed, deleted, and replaced
+    timer: { max: 8, min: 4 }, // seconds on a timed choice at mask 0 / 100
+  },
+};
+export const DEFAULT_MODE = 'kay';
+
+export function getMode(name) {
+  return MODES[name] || MODES[DEFAULT_MODE];
+}
+
+export function meterNames(modeName) {
+  return Object.keys(getMode(modeName).meters);
+}
+
+// "weight" -> "weight_change"
+export function meterKey(meter) {
+  return `${meter}_change`;
+}
+
+// "good" / "bad" for a change to a meter, for coloring.
+export function changeTone(modeName, meter, delta) {
+  const def = getMode(modeName).meters[meter];
+  if (!def || !delta) return '';
+  return Math.sign(delta) === (def.good || -1) ? 'good' : 'bad';
+}
+
+export function startMeters(modeName) {
+  const meters = {};
+  Object.entries(getMode(modeName).meters).forEach(([m, def]) => { meters[m] = def.start; });
+  return meters;
+}
+
+// Secret conditions a story in this mode can use.
+export function conditionsFor(modeName) {
+  const meterConds = meterNames(modeName).flatMap(m => [`${m}_above`, `${m}_below`]);
+  return [...meterConds, 'flag_true', 'flag_false'];
+}
+
+// Guess the mode of an imported story from the meter keys its choices use.
+export function detectMode(parsed) {
+  const used = new Set();
+  Object.values(parsed || {}).forEach(entry => {
+    (entry.choices || []).forEach(c => Object.keys(c).forEach(k => {
+      if (k.endsWith('_change')) used.add(k.slice(0, -7));
+    }));
+  });
+  let best = DEFAULT_MODE, bestScore = 0;
+  Object.entries(MODES).forEach(([name, mode]) => {
+    const score = Object.keys(mode.meters).filter(m => used.has(m)).length;
+    if (score > bestScore) { best = name; bestScore = score; }
+  });
+  return best;
+}
+
+export function isChoiceLocked(modeName, choice, meters) {
+  const mode = getMode(modeName);
+  return mode.isLocked ? Boolean(mode.isLocked(choice, meters)) : false;
+}
+
+// What the game would show for this node: { text, unsaid? }.
+export function lineFor(modeName, n, meters) {
+  const mode = getMode(modeName);
+  if (!n.realText || mode.selfEditMask === undefined) return { text: n.text || '' };
+  if (meters.mask >= mode.selfEditMask) return { text: n.text || '', unsaid: n.realText };
+  return { text: n.realText };
+}
+
+// Seconds on a timed choice, or 0.
+export function choiceTime(modeName, n, meters) {
+  const mode = getMode(modeName);
+  if (!n.timed || !mode.timer) return 0;
+  const t = Math.min(Math.max((meters.mask || 0) / 100, 0), 1);
+  return mode.timer.max + (mode.timer.min - mode.timer.max) * t;
+}
+
+// The game starts at "start" (the scene's Start Node); older stories used "1".
+export function startNodeId(nodes) {
+  if (nodes.start) return 'start';
+  if (nodes['1']) return '1';
+  return Object.keys(nodes)[0];
 }
 
 // "K, Friend ,," -> ["K", "Friend"]
@@ -236,9 +349,13 @@ export function computeLayout(graph) {
 // ================================
 // EXPORT (game-ready flow_graph JSON)
 // ================================
+// Key order matches the story files in the game repo, so exporting a story
+// that was imported gives back the same file.
 export function buildExportData(graph) {
   const exportData = {};
   const target = targetResolver(graph);
+  const modeName = graph.mode || DEFAULT_MODE;
+  const mode = getMode(modeName);
 
   Object.keys(graph.nodes).forEach(id => {
     const n = graph.nodes[id];
@@ -247,6 +364,8 @@ export function buildExportData(graph) {
     if (n.speaker !== undefined) item.speaker = n.speaker;
     if (n.emotion) item.emotion = n.emotion;
     item.text = n.text || '';
+    if (n.realText && mode.nodeKeys.includes('real_text')) item.real_text = n.realText;
+    if (n.timed && mode.nodeKeys.includes('timed')) item.timed = true;
 
     const nextVal = target(id, 'out');
     if (nextVal && (!n.choices || !n.choices.length)) item.next = nextVal;
@@ -264,6 +383,18 @@ export function buildExportData(graph) {
     }
     if (n.sfx) item.sfx = n.sfx;
     if (n.amb) item.amb = n.amb;
+    if (n.voice) item.voice = n.voice;
+
+    // choices
+    if (n.choices && n.choices.length) {
+      item.choices = n.choices.map((c, ci) => {
+        const choiceObj = { text: c.text, type: c.type || 'neutral' };
+        meterNames(modeName).forEach(m => { choiceObj[meterKey(m)] = Number(c[meterKey(m)]) || 0; });
+        choiceObj.next = target(id, `choice-${ci}`);
+        if (c.set_flag) choiceObj.set_flag = c.set_flag;
+        return Object.assign(choiceObj, c.extra || {});
+      });
+    }
 
     // secret
     if (n.secret && n.secret.condition) {
@@ -277,24 +408,34 @@ export function buildExportData(graph) {
       item.secret = secObj;
     }
 
-    // choices
-    if (n.choices && n.choices.length) {
-      item.choices = n.choices.map((c, ci) => {
-        const choiceObj = {
-          text: c.text,
-          type: c.type || 'neutral',
-          weight_change: Number(c.weight_change) || 0,
-          next: target(id, `choice-${ci}`)
-        };
-        if (c.set_flag) choiceObj.set_flag = c.set_flag;
-        return choiceObj;
-      });
-    }
-
-    exportData[id] = item;
+    exportData[id] = Object.assign(item, n.extra || {});
   });
 
   return exportData;
+}
+
+// One value on one line, with spaces after ',' and ':' like the game's files.
+function inlineJSON(v) {
+  if (Array.isArray(v)) return '[' + v.map(inlineJSON).join(', ') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.entries(v).map(([k, x]) => JSON.stringify(k) + ': ' + inlineJSON(x)).join(', ') + '}';
+  }
+  return JSON.stringify(v);
+}
+
+// Text in the same layout as Story/*/flow_graph.json: tabs, a blank line
+// between nodes, and one choice per line. Keeps git diffs small.
+export function formatFlowGraph(data) {
+  const nodes = Object.entries(data).map(([id, node]) => {
+    const lines = Object.entries(node).map(([k, v]) => {
+      if (k === 'choices' && Array.isArray(v)) {
+        return `\t\t"choices": [\n${v.map(c => '\t\t\t' + inlineJSON(c)).join(',\n')}\n\t\t]`;
+      }
+      return `\t\t${JSON.stringify(k)}: ${inlineJSON(v)}`;
+    });
+    return `\t${JSON.stringify(id)}: {\n${lines.join(',\n')}\n\t}`;
+  });
+  return '{\n' + nodes.join(',\n\n') + '\n}\n';
 }
 
 // ================================
@@ -325,12 +466,24 @@ export function gdscriptDictToJSON(str) {
   return str;
 }
 
+const KNOWN_NODE_KEYS = new Set(['speaker', 'emotion', 'text', 'real_text', 'timed', 'next', 'background',
+  'show_characters', 'hide_characters', 'expression', 'sfx', 'amb', 'voice', 'choices', 'secret']);
+const KNOWN_CHOICE_KEYS = new Set(['text', 'type', 'next', 'set_flag']);
+
+function extraKeys(obj, known, isKnown = () => false) {
+  const extra = {};
+  Object.entries(obj).forEach(([k, v]) => { if (!known.has(k) && !isKnown(k)) extra[k] = v; });
+  return extra;
+}
+
 // Parse an exported flow_graph (JSON or GDScript dict) into editor nodes.
 // Positions are all 0 - callers should run computeLayout. Throws on bad input.
+// Returns { nodes, nextId, mode } - mode is guessed from the choices' meter keys.
 export function parseFlowGraph(dictText) {
   const parsed = JSON.parse(gdscriptDictToJSON(dictText));
   const nodes = {};
   let maxNumericId = 0;
+  const isMeterKey = k => k.endsWith('_change');
 
   Object.entries(parsed).forEach(([id, entry]) => {
     const numId = parseInt(id);
@@ -342,9 +495,12 @@ export function parseFlowGraph(dictText) {
       speaker: entry.speaker || '',
       emotion: entry.emotion || '',
       text: entry.text || '',
+      realText: entry.real_text || '',
+      timed: Boolean(entry.timed),
       background: entry.background || '',
       sfx: entry.sfx || '',
       amb: entry.amb || '',
+      voice: entry.voice || '',
       showChars: (entry.show_characters || []).join(', '),
       hideChars: (entry.hide_characters || []).join(', '),
       expression: entry.expression
@@ -356,18 +512,23 @@ export function parseFlowGraph(dictText) {
         flag: entry.secret?.flag || '',
         next: entry.secret?.next || ''
       },
-      choices: (entry.choices || []).map(c => ({
-        text: c.text || '',
-        type: c.type || 'neutral',
-        weight_change: c.weight_change || 0,
-        next: c.next || '',
-        set_flag: c.set_flag || ''
-      })),
-      next: entry.next || ''
+      choices: (entry.choices || []).map(c => {
+        const choice = {
+          text: c.text || '',
+          type: c.type || 'neutral',
+          next: c.next || '',
+          set_flag: c.set_flag || '',
+          extra: extraKeys(c, KNOWN_CHOICE_KEYS, isMeterKey)
+        };
+        Object.keys(c).filter(isMeterKey).forEach(k => { choice[k] = Number(c[k]) || 0; });
+        return choice;
+      }),
+      next: entry.next || '',
+      extra: extraKeys(entry, KNOWN_NODE_KEYS)
     };
   });
 
-  return { nodes, nextId: maxNumericId };
+  return { nodes, nextId: maxNumericId, mode: detectMode(parsed) };
 }
 
 // ================================
@@ -384,17 +545,20 @@ export function decodeShareCode(code) {
 // ================================
 // PLAYTEST
 // ================================
-export function evaluateSecretCondition(secret, weight, flags) {
+// `meters` is { weight: 55 } or { mask: 60, energy: 60 }; a plain number is
+// treated as { weight } for older callers.
+export function evaluateSecretCondition(secret, meters, flags) {
   if (!secret || !secret.condition) return false;
+  if (typeof meters === 'number') meters = { weight: meters };
   const cond = secret.condition;
   const val = Number(secret.value || 0);
   const flag = (secret.flag || '').trim();
 
-  if (cond === 'weight_above') return weight > val;
-  if (cond === 'weight_below') return weight < val;
   if (cond === 'flag_true') return flags.has(flag);
   if (cond === 'flag_false') return !flags.has(flag);
-  return false;
+  const m = /^(.+)_(above|below)$/.exec(cond);
+  if (!m || meters[m[1]] === undefined) return false;
+  return m[2] === 'above' ? meters[m[1]] > val : meters[m[1]] < val;
 }
 
 // ================================
@@ -405,6 +569,8 @@ export function nodeMatchesQuery(n, query) {
   if (String(n.id).toLowerCase().includes(query)) return true;
   if (n.speaker && n.speaker.toLowerCase().includes(query)) return true;
   if (n.text && n.text.toLowerCase().includes(query)) return true;
+  if (n.realText && n.realText.toLowerCase().includes(query)) return true;
+  if (n.voice && n.voice.toLowerCase().includes(query)) return true;
   if (n.emotion && n.emotion.toLowerCase().includes(query)) return true;
   if (n.background && n.background.toLowerCase().includes(query)) return true;
   if (n.sfx && n.sfx.toLowerCase().includes(query)) return true;
@@ -501,7 +667,7 @@ export function analyzeGraph(graph) {
   });
 
   // 3. Reachability / Orphan nodes (from start)
-  const startId = nodes["1"] ? "1" : ids[0];
+  const startId = startNodeId(nodes);
   const reachable = new Set([startId]);
   const queue = [startId];
 
@@ -549,7 +715,53 @@ export function analyzeGraph(graph) {
     });
   }
 
-  // 5. Speakers / emotions that don't match the character presets (typo check).
+  // 5. Keys and conditions the story's mode doesn't understand (the game would
+  // ignore them, so the story wouldn't do what it says).
+  const modeName = graph.mode || DEFAULT_MODE;
+  const mode = getMode(modeName);
+  const meters = meterNames(modeName);
+  ids.forEach(id => {
+    const n = nodes[id];
+    const cond = n.secret && n.secret.condition;
+    const meterCond = cond && /^(.+)_(above|below)$/.exec(cond);
+    if (meterCond && !meters.includes(meterCond[1])) {
+      issues.push({
+        type: 'error',
+        nodeId: id,
+        title: `Unknown Meter ("${cond}")`,
+        desc: `${mode.label} has no "${meterCond[1]}" meter. Use ${meters.map(m => m + '_above / ' + m + '_below').join(', ')}.`
+      });
+    }
+    (n.choices || []).forEach((c, i) => {
+      if (c.type && !mode.choiceTypes.includes(c.type)) {
+        issues.push({
+          type: 'warning',
+          nodeId: id,
+          title: `Unknown Choice Type ("${c.type}")`,
+          desc: `Choice ${i + 1} uses type "${c.type}", which ${mode.label} doesn't have (${mode.choiceTypes.join(', ')}).`
+        });
+      }
+      const stray = Object.keys(c).filter(k => k.endsWith('_change') && !meters.includes(k.slice(0, -7)) && Number(c[k]));
+      if (stray.length) {
+        issues.push({
+          type: 'warning',
+          nodeId: id,
+          title: `Ignored Meter Change (${stray.join(', ')})`,
+          desc: `Choice ${i + 1} changes a meter ${mode.label} doesn't have. It won't be exported.`
+        });
+      }
+    });
+    if ((n.realText && !mode.nodeKeys.includes('real_text')) || (n.timed && !mode.nodeKeys.includes('timed'))) {
+      issues.push({
+        type: 'warning',
+        nodeId: id,
+        title: 'Ignored Mode Field',
+        desc: `This node uses ${n.realText ? 'Real Text' : 'Timed'}, which ${mode.label} doesn't support. It won't be exported.`
+      });
+    }
+  });
+
+  // 6. Speakers / emotions that don't match the character presets (typo check).
   // Only runs once at least one character has been defined.
   const characters = graph.characters || [];
   if (characters.length) {
@@ -603,5 +815,5 @@ export function exampleGraph() {
     { name: "K", color: "#949cf2", emotions: ["tired", "angry", "sad", "nervous"] },
     { name: "Friend", color: "#23a55a", emotions: [] }
   ];
-  return { nodes, nextId: 9, characters };
+  return { nodes, nextId: 9, characters, mode: 'kay' };
 }

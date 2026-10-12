@@ -11,7 +11,7 @@ import {
 } from './canvas.js';
 import { renderSidebar } from './sidebar.js';
 import { runDiagnostics } from './diagnostics.js';
-import { markDirty, clearSave } from './io.js';
+import { markDirty, clearSave, setMode } from './io.js';
 
 // Refresh everything after nodes were added/removed.
 function afterStructureChange() {
@@ -233,6 +233,7 @@ export function loadExample() {
   state.nodes = example.nodes;
   state.nextId = example.nextId;
   state.characters = example.characters;
+  setMode(example.mode);
   state.connections = buildConnections(state.nodes);
   rebuildNodeElements();
   renderConnections();
