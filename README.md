@@ -36,7 +36,12 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - Each character's story follows their mode from the game (`Scripts/StoryEngine/modes/` in Untitled Illness). Pick it in the toolbar; importing a story picks it automatically.
   - **Kay (KayMode):** one `weight` meter, `weight_change` on choices, helpful choices lock at 80+.
   - **Elysia (ElysiaMode):** hidden `mask` and `energy` meters, `mask_change` / `energy_change` on choices, a `perform` choice type, **Real Text** (self-edit) and **Timed** choices, and honest choices lock when energy < 20 or mask > 85.
-  - The sidebar, secret conditions (`mask_below`, `energy_above`, ...), node cards, diagnostics and playtest all follow the mode.
+  - **Ulyn (UlynMode):** hidden `busy` and `unsaid` meters, `busy_change` / `unsaid_change` on choices, an `open` choice type (honest about himself, locks above busy 80), **cut-off thoughts** (`cut` / `cut_after`) and **quiet** lines.
+  - The sidebar, secret conditions (`mask_below`, `unsaid_above`, ...), node cards, diagnostics and playtest all follow the mode.
+
+- **Calls and Noticing (any mode)**
+  - **Call:** give a node a caller (`"call": "Mom"`) and its choices show up on a ringing phone. In Ulyn's mode it rings for 6 seconds, then declines.
+  - **Noticing:** write `{shown text|FlagName}` in a line to make a detail the player can click. A choice with **requires** only shows up once that flag is set. Playtest lets you click details, just like the game.
   - New modes go in `MODES` in `js/graph.js`; keep it in sync with the mode's `INFO` in Godot.
 
 - **Branching and Secret Routes**
@@ -168,6 +173,30 @@ Elysia's stories use her mode's keys instead of `weight_change`:
 	"timed": true,
 	"choices": [
 		{"text": "Stay on the call", "type": "perform", "mask_change": 5, "energy_change": -10, "next": "call_stay_1"}
+	]
+}
+```
+
+Ulyn's stories add cut-off thoughts, quiet lines, calls, and details to notice:
+
+```json
+"wake_5": {
+	"speaker": "Ulyn",
+	"text": "It's my favorite. She knows it's my favorite. That's why she says it.",
+	"cut_after": "She knows it's my favorite.",
+	"cut": "Anyway. Council at eight. Coffee first.",
+	"choices": [
+		{"text": "\"can't tmr. council stuff\"", "type": "neutral", "busy_change": 5, "unsaid_change": 5, "next": "wake_cant_1"}
+	]
+},
+
+"seven_1": {
+	"speaker": "",
+	"text": "*At 7 p.m. the phone rings again. Mom.*",
+	"call": "Mom",
+	"choices": [
+		{"text": "Decline", "type": "neutral", "busy_change": 5, "unsaid_change": 5, "next": "seven_decline_1"},
+		{"text": "You were pressing your thumb.", "type": "honest", "busy_change": 0, "unsaid_change": -5, "next": "pres_thumb_1", "requires": "NoticedKayThumb"}
 	]
 }
 ```

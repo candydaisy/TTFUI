@@ -10,6 +10,7 @@ export function createNode(id, x, y) {
     id, x, y,
     speaker: '', emotion: '', text: 'New line.',
     realText: '', timed: false,
+    cut: '', cutAfter: '', quiet: false, call: '',
     background: '', sfx: '', amb: '', voice: '',
     showChars: '', hideChars: '', expression: '',
     secret: { condition: '', value: '', flag: '', next: '' },
@@ -19,7 +20,7 @@ export function createNode(id, x, y) {
 }
 
 export function createChoice(mode) {
-  const c = { text: '', type: 'neutral', next: '', set_flag: '', extra: {} };
+  const c = { text: '', type: 'neutral', next: '', set_flag: '', requires: '', extra: {} };
   meterNames(mode).forEach(m => { c[meterKey(m)] = 0; });
   return c;
 }
@@ -49,6 +50,18 @@ export const MODES = {
     isLocked: (c, m) => c.type === 'honest' && (m.energy < 20 || m.mask > 85),
     selfEditMask: 60, // at or above: real_text is typed, deleted, and replaced
     timer: { max: 8, min: 4 }, // seconds on a timed choice at mask 0 / 100
+    timeoutType: 'perform', // what a timed choice picks when time runs out
+  },
+  ulyn: {
+    label: 'Ulyn (UlynMode)',
+    meters: { busy: { start: 60, label: 'Busy', good: -1 }, unsaid: { start: 50, label: 'Unsaid', good: -1 } },
+    choiceTypes: ['neutral', 'honest', 'helpful', 'open'],
+    nodeKeys: ['cut', 'cut_after', 'quiet'],
+    // "open" = honest about himself; locks while busy > 80
+    isLocked: (c, m) => c.type === 'open' && m.busy > 80,
+    cutBusy: 60, // at or above: a line with "cut" breaks off after cut_after
+    callTime: 6, // seconds a call rings before it's declined
+    timeoutType: 'neutral',
   },
 };
 export const DEFAULT_MODE = 'kay';
@@ -106,20 +119,55 @@ export function isChoiceLocked(modeName, choice, meters) {
   return mode.isLocked ? Boolean(mode.isLocked(choice, meters)) : false;
 }
 
-// What the game would show for this node: { text, unsaid? }.
+// What the game would show for this node: { text, unsaid?, cut? }.
 export function lineFor(modeName, n, meters) {
   const mode = getMode(modeName);
+  if (n.cut && mode.cutBusy !== undefined && meters.busy >= mode.cutBusy) {
+    const at = (n.text || '').indexOf(n.cutAfter || '');
+    if (n.cutAfter && at >= 0) {
+      return { unsaid: n.text.slice(0, at + n.cutAfter.length).trim() + '—', text: n.cut, cut: true };
+    }
+  }
   if (!n.realText || mode.selfEditMask === undefined) return { text: n.text || '' };
   if (meters.mask >= mode.selfEditMask) return { text: n.text || '', unsaid: n.realText };
   return { text: n.realText };
 }
 
-// Seconds on a timed choice, or 0.
+// Seconds on a timed choice (or a ringing call), or 0.
 export function choiceTime(modeName, n, meters) {
   const mode = getMode(modeName);
+  if (n.call && mode.callTime) return mode.callTime;
   if (!n.timed || !mode.timer) return 0;
   const t = Math.min(Math.max((meters.mask || 0) / 100, 0), 1);
   return mode.timer.max + (mode.timer.min - mode.timer.max) * t;
+}
+
+// The choice a timed choice / ringing call picks when time runs out.
+export function timeoutChoiceIndex(modeName, choices, meters) {
+  const mode = getMode(modeName);
+  const open = choices.map((c, i) => ({ c, i })).filter(({ c }) => !isChoiceLocked(modeName, c, meters));
+  const pick = open.find(({ c }) => c.type === mode.timeoutType) || open[0];
+  return pick ? pick.i : -1;
+}
+
+// Choices the player can see: "requires" hides a choice until its flag is set.
+export function visibleChoices(choices, flags) {
+  return (choices || []).map((c, i) => ({ c, i })).filter(({ c }) => !c.requires || flags.has(c.requires));
+}
+
+// ================================
+// NOTICING: {shown text|FlagName} in a line is a detail the player can click
+// ================================
+export const NOTICE_RE = /\{([^{}|]+)\|([A-Za-z0-9_]+)\}/g;
+
+// [{ text, flag }] for every detail in a line.
+export function noticesIn(text) {
+  return [...String(text || '').matchAll(NOTICE_RE)].map(m => ({ text: m[1], flag: m[2] }));
+}
+
+// The line with the markup removed.
+export function plainText(text) {
+  return String(text || '').replace(NOTICE_RE, '$1');
 }
 
 // The game starts at "start" (the scene's Start Node); older stories used "1".
@@ -365,7 +413,13 @@ export function buildExportData(graph) {
     if (n.emotion) item.emotion = n.emotion;
     item.text = n.text || '';
     if (n.realText && mode.nodeKeys.includes('real_text')) item.real_text = n.realText;
+    if (n.cut && mode.nodeKeys.includes('cut')) {
+      item.cut_after = n.cutAfter || '';
+      item.cut = n.cut;
+    }
     if (n.timed && mode.nodeKeys.includes('timed')) item.timed = true;
+    if (n.quiet && mode.nodeKeys.includes('quiet')) item.quiet = true;
+    if (n.call) item.call = n.call;
 
     const nextVal = target(id, 'out');
     if (nextVal && (!n.choices || !n.choices.length)) item.next = nextVal;
@@ -392,6 +446,7 @@ export function buildExportData(graph) {
         meterNames(modeName).forEach(m => { choiceObj[meterKey(m)] = Number(c[meterKey(m)]) || 0; });
         choiceObj.next = target(id, `choice-${ci}`);
         if (c.set_flag) choiceObj.set_flag = c.set_flag;
+        if (c.requires) choiceObj.requires = c.requires;
         return Object.assign(choiceObj, c.extra || {});
       });
     }
@@ -466,9 +521,9 @@ export function gdscriptDictToJSON(str) {
   return str;
 }
 
-const KNOWN_NODE_KEYS = new Set(['speaker', 'emotion', 'text', 'real_text', 'timed', 'next', 'background',
-  'show_characters', 'hide_characters', 'expression', 'sfx', 'amb', 'voice', 'choices', 'secret']);
-const KNOWN_CHOICE_KEYS = new Set(['text', 'type', 'next', 'set_flag']);
+const KNOWN_NODE_KEYS = new Set(['speaker', 'emotion', 'text', 'real_text', 'cut_after', 'cut', 'timed', 'quiet', 'call',
+  'next', 'background', 'show_characters', 'hide_characters', 'expression', 'sfx', 'amb', 'voice', 'choices', 'secret']);
+const KNOWN_CHOICE_KEYS = new Set(['text', 'type', 'next', 'set_flag', 'requires']);
 
 function extraKeys(obj, known, isKnown = () => false) {
   const extra = {};
@@ -497,6 +552,10 @@ export function parseFlowGraph(dictText) {
       text: entry.text || '',
       realText: entry.real_text || '',
       timed: Boolean(entry.timed),
+      cut: entry.cut || '',
+      cutAfter: entry.cut_after || '',
+      quiet: Boolean(entry.quiet),
+      call: entry.call || '',
       background: entry.background || '',
       sfx: entry.sfx || '',
       amb: entry.amb || '',
@@ -518,6 +577,7 @@ export function parseFlowGraph(dictText) {
           type: c.type || 'neutral',
           next: c.next || '',
           set_flag: c.set_flag || '',
+          requires: c.requires || '',
           extra: extraKeys(c, KNOWN_CHOICE_KEYS, isMeterKey)
         };
         Object.keys(c).filter(isMeterKey).forEach(k => { choice[k] = Number(c[k]) || 0; });
@@ -571,6 +631,8 @@ export function nodeMatchesQuery(n, query) {
   if (n.text && n.text.toLowerCase().includes(query)) return true;
   if (n.realText && n.realText.toLowerCase().includes(query)) return true;
   if (n.voice && n.voice.toLowerCase().includes(query)) return true;
+  if (n.cut && n.cut.toLowerCase().includes(query)) return true;
+  if (n.call && n.call.toLowerCase().includes(query)) return true;
   if (n.emotion && n.emotion.toLowerCase().includes(query)) return true;
   if (n.background && n.background.toLowerCase().includes(query)) return true;
   if (n.sfx && n.sfx.toLowerCase().includes(query)) return true;
@@ -583,6 +645,7 @@ export function nodeMatchesQuery(n, query) {
   return Boolean(n.choices && n.choices.some(c =>
     (c.text && c.text.toLowerCase().includes(query)) ||
     (c.set_flag && c.set_flag.toLowerCase().includes(query)) ||
+    (c.requires && c.requires.toLowerCase().includes(query)) ||
     (c.next && c.next.toLowerCase().includes(query)) ||
     (c.type && c.type.toLowerCase().includes(query))
   ));
@@ -599,12 +662,13 @@ export function analyzeGraph(graph) {
   if (!ids.length) return issues;
   const target = targetResolver(graph);
 
-  // Set of all flags set in the game across choices
+  // Set of all flags set in the game: by choices, and by noticing {details|Flag}
   const setFlags = new Set();
   ids.forEach(id => {
     (nodes[id].choices || []).forEach(c => {
       if (c.set_flag && c.set_flag.trim()) setFlags.add(c.set_flag.trim());
     });
+    noticesIn(nodes[id].text).forEach(d => setFlags.add(d.flag));
   });
 
   // 1. Broken references (target node does not exist)
@@ -751,14 +815,46 @@ export function analyzeGraph(graph) {
         });
       }
     });
-    if ((n.realText && !mode.nodeKeys.includes('real_text')) || (n.timed && !mode.nodeKeys.includes('timed'))) {
+    const unsupported = [
+      n.realText && !mode.nodeKeys.includes('real_text') && 'Real Text',
+      n.timed && !mode.nodeKeys.includes('timed') && 'Timed',
+      n.cut && !mode.nodeKeys.includes('cut') && 'Cut-off Thought',
+      n.quiet && !mode.nodeKeys.includes('quiet') && 'Quiet',
+    ].filter(Boolean);
+    if (unsupported.length) {
       issues.push({
         type: 'warning',
         nodeId: id,
         title: 'Ignored Mode Field',
-        desc: `This node uses ${n.realText ? 'Real Text' : 'Timed'}, which ${mode.label} doesn't support. It won't be exported.`
+        desc: `This node uses ${unsupported.join(', ')}, which ${mode.label} doesn't support. It won't be exported.`
       });
     }
+    if (n.cut && mode.nodeKeys.includes('cut') && (!n.cutAfter || !(n.text || '').includes(n.cutAfter))) {
+      issues.push({
+        type: 'error',
+        nodeId: id,
+        title: 'Cut Point Not In Text',
+        desc: `"Cut after" must be a piece of this node's text, so the game knows where the thought breaks off.`
+      });
+    }
+    if (n.call && !(n.choices || []).length) {
+      issues.push({
+        type: 'error',
+        nodeId: id,
+        title: 'Call Without Choices',
+        desc: `A call shows the node's choices as phone buttons (e.g. Decline / Answer). Add at least one.`
+      });
+    }
+    (n.choices || []).forEach((c, i) => {
+      if (c.requires && !setFlags.has(c.requires)) {
+        issues.push({
+          type: 'warning',
+          nodeId: id,
+          title: `Choice Can Never Show ("${c.requires}")`,
+          desc: `Choice ${i + 1} requires "${c.requires}", but no choice sets it and no {detail|${c.requires}} notices it.`
+        });
+      }
+    });
   });
 
   // 6. Speakers / emotions that don't match the character presets (typo check).

@@ -73,6 +73,10 @@
   .tb-btn:hover { background: var(--surface3); color: var(--text); }
   .tb-link { text-decoration: none; display: inline-flex; align-items: center; }
   .pt-unsaid { color: var(--text-dim); }
+  .pt-notice { color: var(--warning); text-decoration: underline; cursor: pointer; }
+  .pt-notice.noticed { opacity: 0.55; text-decoration: none; cursor: default; }
+  .pt-quiet { margin-top: 8px; font-size: 10px; color: var(--text-dim); font-family: var(--font-mono); }
+  .pt-call { width: 100%; text-align: center; font-size: 13px; color: var(--text-muted); padding: 4px 0 8px; }
   .pt-delta { margin-left: 4px; font-size: 11px; }
   .pt-delta.good { color: var(--success); }
   .pt-delta.bad { color: var(--danger); }

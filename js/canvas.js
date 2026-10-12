@@ -3,7 +3,7 @@
 // ================================
 import { state, lastSelectedId } from './state.js';
 import { escapeHTML } from './utils.js';
-import { splitList, findCharacter, meterNames, meterKey, changeTone } from './graph.js';
+import { splitList, findCharacter, meterNames, meterKey, changeTone, noticesIn } from './graph.js';
 import { getSnapshot, pushHistory, commitSnapshot } from './history.js';
 import { renderSidebar } from './sidebar.js';
 import { markDirty } from './io.js';
@@ -570,6 +570,7 @@ function buildNodeHTML(id) {
   if (n.amb) detailRows += detailRow('amb', 'var(--info)', '~ ' + n.amb);
   if (n.voice) detailRows += detailRow('voice', 'var(--accent-light)', n.voice);
   if (n.realText) detailRows += detailRow('real', 'var(--warning)', n.realText);
+  if (n.cut) detailRows += detailRow('cut', 'var(--warning)', (n.cutAfter || '') + ' — ' + n.cut);
   if (n.showChars) detailRows += detailRow('show', 'var(--success)', splitList(n.showChars).join(', '));
   if (n.hideChars) detailRows += detailRow('hide', 'var(--danger)', splitList(n.hideChars).join(', '));
   if (n.expression) {
@@ -609,6 +610,7 @@ function buildNodeHTML(id) {
           return v ? `<span class="node-choice-delta ${changeTone(state.mode, m, v)}" title="${escapeHTML(m)}">${escapeHTML(m[0])}${v > 0 ? '+' : ''}${v}</span>` : '';
         }).join('')}
         ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">flag: ${escapeHTML(c.set_flag)}</span>` : ''}
+        ${c.requires ? `<span style="font-size:9px;color:var(--info);font-family:var(--font-mono);">needs: ${escapeHTML(c.requires)}</span>` : ''}
       </div>`;
       choicePortsHTML += `<div class="port out choice-port" data-node="${nodeAttr}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${escapeHTML(c.text)}"></div>`;
     });
@@ -616,8 +618,15 @@ function buildNodeHTML(id) {
 
   const timedBadge = n.timed ? `<span class="tag tag-timed">timed</span>` : '';
   const editBadge = n.realText ? `<span class="tag tag-timed">self-edit</span>` : '';
-  const tagsHTML = (secretBadge || choicesBadge || timedBadge || editBadge)
-    ? `<div class="node-tags" style="margin-top:5px;">${secretBadge}${choicesBadge}${timedBadge}${editBadge}</div>`
+  const notices = noticesIn(n.text);
+  const extraBadges = [
+    n.call && `call: ${n.call}`,
+    n.quiet && 'quiet',
+    n.cut && 'cut-off',
+    notices.length && `notice: ${notices.map(d => d.flag).join(', ')}`,
+  ].filter(Boolean).map(t => `<span class="tag tag-timed">${escapeHTML(t)}</span>`).join('');
+  const tagsHTML = (secretBadge || choicesBadge || timedBadge || editBadge || extraBadges)
+    ? `<div class="node-tags" style="margin-top:5px;">${secretBadge}${choicesBadge}${timedBadge}${editBadge}${extraBadges}</div>`
     : '';
 
   return `

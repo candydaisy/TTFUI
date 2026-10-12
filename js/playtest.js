@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { escapeHTML, showToast } from './utils.js';
 import {
   getTarget, evaluateSecretCondition, findCharacter, getMode, meterNames, meterKey, startMeters,
-  startNodeId, isChoiceLocked, lineFor, choiceTime, changeTone
+  startNodeId, isChoiceLocked, lineFor, choiceTime, changeTone, timeoutChoiceIndex, visibleChoices, NOTICE_RE
 } from './graph.js';
 import { centerOnNode, clearHighlight } from './canvas.js';
 
@@ -39,6 +39,54 @@ export function setupPlaytestEvents() {
     const btn = e.target.closest('.pt-choice-btn');
     if (btn) selectPlaytestChoice(Number(btn.dataset.choiceIndex));
   });
+  // Clicking a {detail|Flag} notices it, like in the game.
+  document.getElementById('pt-dialogue-text').addEventListener('click', e => {
+    const el = e.target.closest('.pt-notice');
+    if (!el || playtestState.flags.has(el.dataset.flag)) return;
+    playtestState.flags.add(el.dataset.flag);
+    el.classList.add('noticed');
+    showToast(`Noticed (${el.dataset.flag})`);
+    document.getElementById('pt-flags-val').textContent = Array.from(playtestState.flags).join(', ');
+    const n = state.nodes[playtestState.activeNodeId];
+    if (n && n.choices && n.choices.length) renderChoices(n); // a choice may need it
+  });
+}
+
+// Story text -> HTML, with {details|Flag} as clickable spans.
+function renderLine(text) {
+  text = String(text || '');
+  let html = '', last = 0;
+  for (const m of text.matchAll(NOTICE_RE)) {
+    html += escapeHTML(text.slice(last, m.index));
+    const noticed = playtestState.flags.has(m[2]);
+    html += `<span class="pt-notice${noticed ? ' noticed' : ''}" data-flag="${escapeHTML(m[2])}" title="Click to notice (${escapeHTML(m[2])})">${escapeHTML(m[1])}</span>`;
+    last = m.index + m[0].length;
+  }
+  return html + escapeHTML(text.slice(last));
+}
+
+// Choice buttons (or a ringing phone for "call" nodes). Choices whose
+// "requires" flag isn't set are hidden, like in the game.
+function renderChoices(n) {
+  const container = document.getElementById('pt-choices-container');
+  const header = n.call ? `<div class="pt-call">incoming call · <strong>${escapeHTML(n.call)}</strong></div>` : '';
+  container.innerHTML = header + visibleChoices(n.choices, playtestState.flags).map(({ c, i: idx }) => {
+    const locked = isChoiceLocked(state.mode, c, playtestState.meters);
+    let metaHtml = locked ? `<span class="pt-badge-locked">locked</span>` : '';
+    meterNames(state.mode).forEach(m => {
+      const v = Number(c[meterKey(m)]) || 0;
+      if (v) metaHtml += `<span class="${changeTone(state.mode, m, v) === 'good' ? 'pt-badge-pos' : 'pt-badge-neg'}">${v > 0 ? '+' : ''}${v} ${escapeHTML(m)}</span>`;
+    });
+    if (c.set_flag) metaHtml += `<span class="pt-badge-flag">+flag: ${escapeHTML(c.set_flag)}</span>`;
+    if (c.requires) metaHtml += `<span class="pt-badge-flag">needs: ${escapeHTML(c.requires)}</span>`;
+    if (c.type) metaHtml += `<span style="opacity:0.6;font-size:10px;">[${escapeHTML(c.type)}]</span>`;
+    return `
+      <button class="pt-choice-btn" data-choice-index="${idx}" ${locked ? 'disabled' : ''}>
+        <span>${escapeHTML(c.text || '(Choice ' + (idx + 1) + ')')}</span>
+        <div class="pt-choice-meta">${metaHtml}</div>
+      </button>
+    `;
+  }).join('');
 }
 
 export function isPlaytestOpen() {
@@ -150,8 +198,11 @@ function renderPlaytestStep() {
   const line = lineFor(state.mode, n, playtestState.meters);
   const textEl = document.getElementById('pt-dialogue-text');
   textEl.innerHTML = line.unsaid
-    ? `<s class="pt-unsaid" title="Typed, then deleted">${escapeHTML(line.unsaid)}</s><br>${escapeHTML(line.text || '...')}`
-    : escapeHTML(line.text || '...');
+    ? (line.cut
+      ? `<span class="pt-unsaid" title="Cut off">${renderLine(line.unsaid)}</span><br>${renderLine(line.text || '...')}`
+      : `<s class="pt-unsaid" title="Typed, then deleted">${renderLine(line.unsaid)}</s><br>${renderLine(line.text || '...')}`)
+    : renderLine(line.text || '...');
+  if (n.quiet) textEl.insertAdjacentHTML('beforeend', `<div class="pt-quiet">quiet line: slow, can't be skipped in the game</div>`);
 
   // Actions: Choices vs Continue
   const choicesContainer = document.getElementById('pt-choices-container');
@@ -161,27 +212,7 @@ function renderPlaytestStep() {
     choicesContainer.style.display = 'flex';
     advanceContainer.style.display = 'none';
 
-    choicesContainer.innerHTML = n.choices.map((c, idx) => {
-      const locked = isChoiceLocked(state.mode, c, playtestState.meters);
-      let metaHtml = locked ? `<span class="pt-badge-locked">locked</span>` : '';
-      meterNames(state.mode).forEach(m => {
-        const v = Number(c[meterKey(m)]) || 0;
-        if (v) metaHtml += `<span class="${changeTone(state.mode, m, v) === 'good' ? 'pt-badge-pos' : 'pt-badge-neg'}">${v > 0 ? '+' : ''}${v} ${escapeHTML(m)}</span>`;
-      });
-      if (c.set_flag) {
-        metaHtml += `<span class="pt-badge-flag">+flag: ${escapeHTML(c.set_flag)}</span>`;
-      }
-      if (c.type) {
-        metaHtml += `<span style="opacity:0.6;font-size:10px;">[${escapeHTML(c.type)}]</span>`;
-      }
-
-      return `
-        <button class="pt-choice-btn" data-choice-index="${idx}" ${locked ? 'disabled' : ''}>
-          <span>${escapeHTML(c.text || '(Choice ' + (idx + 1) + ')')}</span>
-          <div class="pt-choice-meta">${metaHtml}</div>
-        </button>
-      `;
-    }).join('');
+    renderChoices(n);
     startTimer(n);
   } else {
     choicesContainer.style.display = 'none';
@@ -202,8 +233,8 @@ function renderPlaytestStep() {
   }
 }
 
-// Timed choices count down like in the game; running out picks the "perform"
-// choice (or the first one that isn't locked).
+// Timed choices and ringing calls count down like in the game; running out
+// picks the mode's timeout choice ("perform" for Elysia, "neutral" for Ulyn).
 function startTimer(n) {
   const seconds = choiceTime(state.mode, n, playtestState.meters);
   const bar = document.getElementById('pt-timer');
@@ -216,11 +247,11 @@ function startTimer(n) {
     fill.style.width = Math.max(0, left / timer.total * 100) + '%';
     if (left <= 0) {
       stopTimer();
-      const open = n.choices.map((c, i) => ({ c, i })).filter(({ c }) => !isChoiceLocked(state.mode, c, playtestState.meters));
-      const pick = open.find(({ c }) => c.type === 'perform') || open[0];
-      if (pick) {
-        showToast('Time ran out');
-        selectPlaytestChoice(pick.i);
+      const shown = visibleChoices(n.choices, playtestState.flags);
+      const pick = timeoutChoiceIndex(state.mode, shown.map(x => x.c), playtestState.meters);
+      if (pick >= 0) {
+        showToast(n.call ? 'It rang out' : 'Time ran out');
+        selectPlaytestChoice(shown[pick].i);
       }
     }
   }, 50);

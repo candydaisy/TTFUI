@@ -27,6 +27,24 @@ function modeFieldsHTML(n) {
       <textarea class="field-input" id="f-real" rows="2" placeholder="What they really want to say. While the mask is high, this is typed, deleted, and replaced by Dialog Text.">${escapeHTML(n.realText || '')}</textarea>
     </div>`;
   }
+  if (mode.nodeKeys.includes('cut')) {
+    html += `
+    <div class="field-group">
+      <div class="field-label">Cut after (a piece of Dialog Text)</div>
+      <input class="field-input" id="f-cut-after" value="${escapeHTML(n.cutAfter || '')}" placeholder="She knows it's my favorite.">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Cut to (cut-off thought)</div>
+      <input class="field-input" id="f-cut" value="${escapeHTML(n.cut || '')}" placeholder="Anyway. Council at eight.">
+      <div class="field-hint">While busy is high, the line breaks off after "Cut after" and becomes this.</div>
+    </div>`;
+  }
+  if (mode.nodeKeys.includes('quiet')) {
+    html += `
+    <div class="field-group">
+      <label class="field-check"><input type="checkbox" id="f-quiet" ${n.quiet ? 'checked' : ''}> Quiet (slow, can't be skipped or auto-advanced)</label>
+    </div>`;
+  }
   if (mode.nodeKeys.includes('timed')) {
     html += `
     <div class="field-group">
@@ -96,6 +114,11 @@ export function renderSidebar() {
     <div class="field-group">
       <div class="field-label">Dialog Text</div>
       <textarea class="field-input" id="f-text" rows="3" placeholder="What the character says...">${escapeHTML(n.text)}</textarea>
+      <div class="field-hint">{shown text|FlagName} makes a detail the player can click to notice.</div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Call (shows the choices on a ringing phone)</div>
+      <input class="field-input" id="f-call" value="${escapeHTML(n.call || '')}" placeholder="Mom (empty = not a call)">
     </div>
 
     <div class="field-section">Visuals</div>
@@ -186,6 +209,7 @@ function buildChoiceHTML(i, c) {
       </div>
       <div class="choice-row">
         <input class="field-input" style="flex:1" placeholder="set_flag (optional)" value="${escapeHTML(c.set_flag)}" data-choice-key="set_flag">
+        <input class="field-input" style="flex:1;margin-left:4px" placeholder="requires flag" title="Only show this choice if this flag is set (e.g. a noticed detail)" value="${escapeHTML(c.requires || '')}" data-choice-key="requires">
       </div>
     </div>
   `;
@@ -204,6 +228,9 @@ const FIELDS = {
   'f-amb':         (n, v) => { n.amb = v; },
   'f-voice':       (n, v) => { n.voice = v; },
   'f-real':        (n, v) => { n.realText = v; },
+  'f-cut':         (n, v) => { n.cut = v; },
+  'f-cut-after':   (n, v) => { n.cutAfter = v; },
+  'f-call':        (n, v) => { n.call = v; },
   'f-secret-cond': (n, v) => { n.secret.condition = v; },
   'f-secret-val':  (n, v) => { n.secret.value = v; },
   'f-secret-flag': (n, v) => { n.secret.flag = v; },
@@ -229,9 +256,9 @@ export function setupSidebarEvents() {
       return;
     }
 
-    if (el.id === 'f-timed' && e.type === 'change') {
+    if ((el.id === 'f-timed' || el.id === 'f-quiet') && e.type === 'change') {
       pushHistory();
-      n.timed = el.checked;
+      n[el.id === 'f-timed' ? 'timed' : 'quiet'] = el.checked;
       updateNodeEl(state.selectedNode);
       markDirty();
       return;
