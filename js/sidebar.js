@@ -130,6 +130,8 @@ export function renderSidebar() {
       <div class="field-label">Speaker</div>
       <input class="field-input" id="f-speaker" list="character-list" value="${escapeHTML(n.speaker)}" placeholder="K, Friend, (empty for narrator)" autocomplete="off">
       <datalist id="character-list">${state.characters.map(c => `<option value="${escapeHTML(c.name)}">`).join('')}</datalist>
+      <datalist id="node-list">${Object.values(state.nodes).filter(o => o.id !== n.id).map(o =>
+        `<option value="${escapeHTML(o.id)}" label="${escapeHTML(`${o.speaker || 'narrator'}: ${String(o.text || '').slice(0, 40)}`)}">`).join('')}</datalist>
     </div>
     <div class="field-group">
       <div class="field-label">Emotion</div>
@@ -207,7 +209,7 @@ export function renderSidebar() {
     </div>
     <div class="field-group">
       <div class="field-label">Secret Next Node</div>
-      <input class="field-input" id="f-secret-next" value="${escapeHTML(n.secret.next)}" placeholder="secret_1">
+      <input class="field-input" id="f-secret-next" list="node-list" autocomplete="off" value="${escapeHTML(n.secret.next)}" placeholder="secret_1">
     </div>`)}
 
     <div class="field-section">${n.minigame ? 'Minigame Results' : 'Choices'}</div>
@@ -243,7 +245,7 @@ function buildChoiceHTML(i, c, isResult) {
         ${meterNames(state.mode).map(m => `<span class="choice-meter-label">${escapeHTML(mode.meters[m].label)}</span>`).join('')}
       </div>
       <div class="choice-row">${meterInputs}
-        <input class="field-input" style="flex:1;margin-left:4px" placeholder="next node" value="${escapeHTML(c.next)}" data-choice-key="next">
+        <input class="field-input" style="flex:1;margin-left:4px" placeholder="next node" list="node-list" autocomplete="off" title="Pick a node, or drag from this choice's port on the canvas" value="${escapeHTML(c.next)}" data-choice-key="next">
       </div>
       <div class="choice-row">
         <input class="field-input" style="flex:1" placeholder="set_flag (optional)" value="${escapeHTML(c.set_flag)}" data-choice-key="set_flag">
