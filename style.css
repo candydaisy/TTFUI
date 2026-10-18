@@ -395,6 +395,13 @@
     border-bottom: 1px solid var(--border);
   }
 
+  .field-fold > summary { cursor: pointer; list-style: none; user-select: none; }
+  .field-fold > summary::-webkit-details-marker { display: none; }
+  .field-fold > summary::before { content: '▸'; display: inline-block; width: 14px; color: var(--text-dim); }
+  .field-fold[open] > summary::before { content: '▾'; }
+  .field-fold > summary:hover { color: var(--accent-light); }
+  .field-filled { color: var(--accent); font-size: 8px; vertical-align: middle; margin-left: 4px; }
+
   .choices-editor { display: flex; flex-direction: column; gap: 8px; }
 
   .choice-item {

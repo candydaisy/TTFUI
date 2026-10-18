@@ -18,6 +18,16 @@ const optionsKeeping = (values, current) =>
 
 // Fields only some modes read (see MODES in graph.js).
 // Translated text for th.json. Real text / cut only show when the English has them.
+// Rarely used fields fold away. A section opens when it has something in it,
+// unless the writer opened or closed it themselves.
+const sectionOpen = {};
+function section(name, filled, body) {
+  const open = sectionOpen[name] ?? Boolean(filled);
+  return `<details class="field-fold" data-section="${name}" ${open ? 'open' : ''}>
+    <summary class="field-section">${name}${filled ? ' <span class="field-filled">●</span>' : ''}</summary>${body}
+  </details>`;
+}
+
 function translationFieldsHTML(n) {
   const tr = n.tr || {};
   const box = (id, label, val, rows) => `
@@ -130,7 +140,10 @@ export function renderSidebar() {
       <textarea class="field-input" id="f-text" rows="3" placeholder="What the character says...">${escapeHTML(n.text)}</textarea>
       <div class="field-hint">{shown text|FlagName} makes a detail the player can click to notice.</div>
     </div>
-    ${translationFieldsHTML(n)}
+    ${modeFieldsHTML(n)}
+
+    ${section('Translation', n.tr && Object.values(n.tr).some(Boolean), translationFieldsHTML(n))}
+    ${section('Call & Minigame', n.call || n.minigame, `
     <div class="field-group">
       <div class="field-label">Call (shows the choices on a ringing phone)</div>
       <input class="field-input" id="f-call" value="${escapeHTML(n.call || '')}" placeholder="Mom (empty = not a call)">
@@ -142,9 +155,9 @@ export function renderSidebar() {
     ${n.minigame ? `<div class="field-group">
       <div class="field-label">Minigame Settings (JSON)</div>
       <input class="field-input" id="f-settings" value="${escapeHTML(n.settings || '')}" placeholder='{"seconds": 12, "clock": "6:30"}'>
-    </div>` : ''}
+    </div>` : ''}`)}
 
-    <div class="field-section">Visuals</div>
+    ${section('Visuals', n.background || n.showChars || n.hideChars || n.expression, `
     <div class="field-group">
       <div class="field-label">Background (node name)</div>
       <input class="field-input" id="f-bg" value="${escapeHTML(n.background)}" placeholder="bedroom, school...">
@@ -160,9 +173,9 @@ export function renderSidebar() {
     <div class="field-group">
       <div class="field-label">Expressions (CharName:anim, ...)</div>
       <input class="field-input" id="f-expr" value="${escapeHTML(n.expression)}" placeholder="K:angry, Friend:smile">
-    </div>
+    </div>`)}
 
-    <div class="field-section">Audio</div>
+    ${section('Audio', n.sfx || n.amb || n.voice, `
     <div class="field-group">
       <div class="field-label">SFX (one-shot)</div>
       <input class="field-input" id="f-sfx" value="${escapeHTML(n.sfx)}" placeholder="alarm, door...">
@@ -174,11 +187,9 @@ export function renderSidebar() {
     <div class="field-group">
       <div class="field-label">Voice (stops at the next line)</div>
       <input class="field-input" id="f-voice" value="${escapeHTML(n.voice || '')}" placeholder="kay_wake_3">
-    </div>
+    </div>`)}
 
-    ${modeFieldsHTML(n)}
-
-    <div class="field-section">Secret Route</div>
+    ${section('Secret Route', n.secret.condition || n.secret.next, `
     <div class="field-group">
       <div class="field-label">Condition</div>
       <select class="field-input" id="f-secret-cond">
@@ -197,7 +208,7 @@ export function renderSidebar() {
     <div class="field-group">
       <div class="field-label">Secret Next Node</div>
       <input class="field-input" id="f-secret-next" value="${escapeHTML(n.secret.next)}" placeholder="secret_1">
-    </div>
+    </div>`)}
 
     <div class="field-section">${n.minigame ? 'Minigame Results' : 'Choices'}</div>
     <div class="choices-editor" id="choices-editor">
@@ -274,6 +285,10 @@ const FIELDS = {
 // DOM is rebuilt whenever the selection changes.
 export function setupSidebarEvents() {
   const content = document.getElementById('sidebar-content');
+  // 'toggle' doesn't bubble, so listen while it travels down
+  content.addEventListener('toggle', e => {
+    if (e.target.dataset.section) sectionOpen[e.target.dataset.section] = e.target.open;
+  }, true);
 
   const onEdit = e => {
     const el = e.target;
