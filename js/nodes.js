@@ -48,6 +48,7 @@ export function addNode(clientX, clientY) {
   selectNode(id);
   updateEmptyHint();
   markDirty();
+  return id;
 }
 
 // ================================

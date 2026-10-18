@@ -254,7 +254,7 @@ export function setupCanvasEvents() {
     pendingMove = e;
   });
 
-  window.addEventListener('mouseup', () => {
+  window.addEventListener('mouseup', e => {
     flushPendingMove(); // apply the final position before finishing the gesture
     if (panning) {
       panning = false;
@@ -279,6 +279,7 @@ export function setupCanvasEvents() {
     if (connecting) {
       const svg = document.getElementById('temp-line');
       svg.style.width = '0'; svg.style.height = '0';
+      dropWire(e.target, e.clientX, e.clientY);
       connecting = null;
     }
   });
@@ -435,6 +436,8 @@ export function setupCanvasEvents() {
       const portEl = target && target.closest('.port');
       if (portEl && portEl.dataset.port === 'in' && portEl.dataset.node !== connecting.id) {
         connectPorts(connecting.id, connecting.port, portEl.dataset.node);
+      } else {
+        dropWire(target, touch.clientX, touch.clientY);
       }
       hideTempLine();
       connecting = null;
@@ -451,8 +454,16 @@ export function setupCanvasEvents() {
 }
 
 // Connect an output port to a target node (replacing that port's old link).
-function connectPorts(fromId, port, toId) {
-  pushHistory();
+// A wire dropped on empty canvas makes the next node there, already connected.
+function dropWire(target, clientX, clientY) {
+  if (!target || !target.closest('#canvas-wrap') || target.closest('.node, #minimap, #search-bar')) return;
+  const { id, port } = connecting;
+  const newId = addNode(clientX, clientY);
+  connectPorts(id, port, newId, false); // addNode already saved the undo step
+}
+
+function connectPorts(fromId, port, toId, record = true) {
+  if (record) pushHistory();
   state.connections = state.connections.filter(c => !(c.from === fromId && c.fromPort === port));
   state.connections.push({ from: fromId, fromPort: port, to: toId });
 
