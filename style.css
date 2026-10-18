@@ -896,7 +896,7 @@
     gap: 8px;
   }
   #pt-speaker-name {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--accent);
   }
@@ -911,7 +911,7 @@
     border-radius: 3px;
   }
   #pt-dialogue-text {
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.6;
     color: var(--text);
     white-space: pre-wrap;
@@ -981,6 +981,17 @@
     display: flex;
     justify-content: flex-end;
   }
+  /* Debug off plays it like the game: no IDs, meters, flags or choice outcomes. */
+  #playtest-container:not(.debug) .pt-debug-only,
+  #playtest-container:not(.debug) .pt-choice-meta > :not(.pt-badge-locked) { display: none !important; }
+  #playtest-container.debug #pt-next-btn.secret::after { content: ' (secret route)'; }
+  #pt-debug-btn.on { color: var(--accent); border-color: var(--accent); }
+  .pt-choice-btn { animation: ptChoiceIn 0.25s ease-out both; }
+  .pt-choice-btn:nth-child(2) { animation-delay: 0.05s; }
+  .pt-choice-btn:nth-child(3) { animation-delay: 0.1s; }
+  .pt-choice-btn:nth-child(n+4) { animation-delay: 0.15s; }
+  @keyframes ptChoiceIn { from { opacity: 0; transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { .pt-choice-btn { animation: none; } }
 
   /* ---- CHARACTERS MODAL ---- */
   #characters-list { display: flex; flex-direction: column; gap: 8px; }

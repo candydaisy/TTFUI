@@ -13,6 +13,50 @@ import { centerOnNode, clearHighlight } from './canvas.js';
 let playtestState = newRun(null);
 let timer = null; // { interval, end, total } while a timed choice is counting down
 let lang = 'en'; // 'th' shows each node's translation
+let typing = null; // { interval, parts } while a line is being typed out
+let debug = false;
+try { debug = localStorage.getItem('ttfui-pt-debug') === '1'; } catch {}
+
+// Debug shows node IDs, meters, flags, scene tags and choice outcomes; off plays like the game.
+export function togglePlaytestDebug() {
+  debug = !debug;
+  try { localStorage.setItem('ttfui-pt-debug', debug ? '1' : '0'); } catch {}
+  applyDebug();
+}
+
+function applyDebug() {
+  document.getElementById('playtest-container').classList.toggle('debug', debug);
+  document.getElementById('pt-debug-btn').classList.toggle('on', debug);
+}
+
+// Types the line out letter by letter; quiet lines type slower, like in the game.
+function typeOut(el, slow) {
+  stopTyping();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const parts = [];
+  for (let t; (t = walker.nextNode());) { parts.push([t, t.data]); t.data = ''; }
+  let k = 0;
+  typing = { parts, interval: setInterval(() => {
+    while (k < parts.length && parts[k][0].data.length >= parts[k][1].length) k++;
+    if (k >= parts.length) return stopTyping();
+    const [t, full] = parts[k];
+    t.data = full.slice(0, t.data.length + 1);
+  }, slow ? 45 : 18) };
+}
+
+function stopTyping() {
+  if (typing) clearInterval(typing.interval);
+  typing = null;
+}
+
+// Shows the whole line at once; returns false when nothing was typing.
+function finishTyping() {
+  if (!typing) return false;
+  typing.parts.forEach(([t, full]) => { t.data = full; });
+  stopTyping();
+  return true;
+}
 
 // The active node as the player sees it in the current language.
 function shownNode() {
@@ -59,6 +103,7 @@ export function setupPlaytestEvents() {
   });
   // Clicking a {detail|Flag} notices it, like in the game.
   document.getElementById('pt-dialogue-text').addEventListener('click', e => {
+    if (finishTyping()) return;
     const el = e.target.closest('.pt-notice');
     if (!el || playtestState.flags.has(el.dataset.flag)) return;
     playtestState.flags.add(el.dataset.flag);
@@ -127,12 +172,14 @@ export function openPlaytest(startNodeId) {
   }
 
   playtestState = newRun(startId);
+  applyDebug();
   document.getElementById('playtest-overlay').style.display = 'flex';
   renderPlaytestStep();
 }
 
 export function closePlaytest() {
   stopTimer();
+  stopTyping();
   const overlay = document.getElementById('playtest-overlay');
   if (overlay) overlay.style.display = 'none';
   clearHighlight();
@@ -163,6 +210,7 @@ function renderText(n) {
       : `<s class="pt-unsaid" title="Typed, then deleted">${renderLine(line.unsaid)}</s><br>${renderLine(line.text || '...')}`)
     : renderLine(line.text || '...');
   if (n.quiet) textEl.insertAdjacentHTML('beforeend', `<div class="pt-quiet">quiet line: slow, can't be skipped in the game</div>`);
+  typeOut(textEl, n.quiet);
 }
 
 function renderPlaytestStep() {
@@ -246,13 +294,13 @@ function renderPlaytestStep() {
     const nextTarget = getTarget(state, currId, 'out');
     const nextBtn = document.getElementById('pt-next-btn');
     if (secretWillTrigger) {
-      nextBtn.textContent = `Secret Route (Space)`;
-      nextBtn.className = 'tb-btn warning';
+      nextBtn.textContent = 'Continue';
+      nextBtn.className = 'tb-btn success secret';
     } else if (nextTarget && state.nodes[nextTarget]) {
-      nextBtn.textContent = `Continue (Space)`;
+      nextBtn.textContent = 'Continue';
       nextBtn.className = 'tb-btn success';
     } else {
-      nextBtn.textContent = `End Flow`;
+      nextBtn.textContent = 'The End';
       nextBtn.className = 'tb-btn';
     }
   }
@@ -320,6 +368,7 @@ export function playtestNext() {
   const n = state.nodes[currId];
   if (!n) return;
 
+  if (finishTyping()) return; // first press shows the whole line
   if (n.choices && n.choices.length > 0) return;
 
   if (n.secret && n.secret.condition && n.secret.next &&
@@ -334,6 +383,7 @@ export function playtestNext() {
 
 function renderPlaytestEnd() {
   stopTimer();
+  stopTyping();
   document.getElementById('pt-timer').style.display = 'none';
   document.getElementById('pt-choices-container').style.display = 'none';
   document.getElementById('pt-advance-container').style.display = 'none';

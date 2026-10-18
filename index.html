@@ -261,9 +261,9 @@
     <div id="playtest-header">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-weight:700;font-size:14px;color:var(--accent);">STORY PREVIEW</span>
-        <span id="pt-node-badge" class="pt-badge">Node 1</span>
+        <span id="pt-node-badge" class="pt-badge pt-debug-only">Node 1</span>
       </div>
-      <div id="pt-stats">
+      <div id="pt-stats" class="pt-debug-only">
         <div id="pt-meters" style="display:flex;gap:8px;"></div>
         <div class="pt-stat-pill" title="Active Story Flags">
           <span>Flags:</span>
@@ -271,6 +271,7 @@
         </div>
       </div>
       <div style="display:flex;gap:6px;">
+        <button class="tb-btn" id="pt-debug-btn" data-action="togglePlaytestDebug" title="Show node IDs, meters, flags and what each choice does">Debug</button>
         <button class="tb-btn" data-action="togglePlaytestLang" title="Switch between English and the translation (th.json)">EN</button>
         <button class="tb-btn" data-action="restartPlaytest" title="Restart from beginning">Restart</button>
         <button class="tb-btn" data-action="closePlaytest" title="Close Playtest (Esc)">✕</button>
@@ -278,12 +279,12 @@
     </div>
 
     <!-- SECRET TRIGGER BANNER -->
-    <div id="pt-secret-banner" style="display:none;">
+    <div id="pt-secret-banner" class="pt-debug-only" style="display:none;">
       Secret Condition Met: Diverting to Secret Route!
     </div>
 
     <!-- SCENE STAGING INFO -->
-    <div id="pt-scene-bar">
+    <div id="pt-scene-bar" class="pt-debug-only">
       <span id="pt-bg-tag" class="pt-scene-tag" style="display:none;">BG: <span id="pt-bg-val"></span></span>
       <span id="pt-show-tag" class="pt-scene-tag" style="display:none;">Enter: <span id="pt-show-val"></span></span>
       <span id="pt-hide-tag" class="pt-scene-tag" style="display:none;">Exit: <span id="pt-hide-val"></span></span>
@@ -306,7 +307,7 @@
       <div id="pt-timer" style="display:none;"><div></div></div>
       <div id="pt-choices-container" style="display:none;"></div>
       <div id="pt-advance-container">
-        <button id="pt-next-btn" class="tb-btn success" data-action="playtestNext">Continue (Space)</button>
+        <button id="pt-next-btn" class="tb-btn success" data-action="playtestNext" title="Space">Continue</button>
       </div>
     </div>
 
