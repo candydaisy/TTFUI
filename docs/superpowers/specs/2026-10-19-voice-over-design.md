@@ -77,6 +77,7 @@ Ticked lines on the page are a to-do list only and are not saved.
 | `GET` any other path | static file from `.TTFUI` (same as GitHub Pages) |
 | `GET /api/project` | `{hasKey, routes: [{name, graph, th, files: [..]}], voices}` where `graph`/`th` are the parsed `Story/<Route>/flow_graph.json` / `th.json` (th `null` if absent) and `files` lists existing mp3 names in that route's voice folder |
 | `POST /api/tts` | body `{text, voice, language, model?}` → calls fish.audio with the key → returns `audio/mpeg`. Saves nothing. |
+| `GET /api/voice/<Route>/<name>.mp3` | the saved file, for playback on the page (404 if missing) |
 | `PUT /api/voice/<Route>/<name>.mp3` | body is mp3 bytes → writes the file, creating the folder |
 | `DELETE /api/voice/<Route>/<name>.mp3` | removes the file |
 | `PUT /api/voices` | body is the casting JSON → writes `Story/voices.json` (tab-indented) |
