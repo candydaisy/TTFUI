@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Voice Tool</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <div class="logo">VOICE</div>
+  <a class="tb-btn tb-link" href="index.html" title="Back to the flow graph editor">Flow Graph</a>
+  <a class="tb-btn tb-link" href="relations.html" title="Edit Story/relationships.json">Relationships</a>
+  <div class="tb-sep"></div>
+  <select class="tb-select" id="route-select" title="Which character's story"></select>
+  <select class="tb-select" id="filter-select" title="Which lines to show">
+    <option value="all">All lines</option>
+    <option value="todo">Not voiced</option>
+    <option value="voiced">Voiced</option>
+    <option value="ticked">Ticked</option>
+  </select>
+  <input class="tb-select" id="search-input" type="search" placeholder="Search speaker, text, ID…" autocomplete="off">
+  <div style="flex:1"></div>
+  <span id="key-status" class="vl-hint"></span>
+  <button class="tb-btn" id="keep-all-btn" data-action="keepAll" hidden>Keep all new takes</button>
+  <button class="tb-btn success" id="gen-ticked-btn" data-action="genTicked" disabled>Generate ticked</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="voice-list"></div>
+
+  <div id="sidebar">
+    <div id="sidebar-header">Casting</div>
+    <div id="sidebar-content">
+      <p class="field-hint">Paste a fish.audio voice ID for each speaker, then press Try to hear it. Saved to Story/voices.json.</p>
+      <div id="casting-list"></div>
+      <div class="field-group">
+        <div class="field-label">Model</div>
+        <select class="field-input" id="model-select">
+          <option value="s2.1-pro">s2.1-pro (best)</option>
+          <option value="s2-pro">s2-pro</option>
+          <option value="s1">s1</option>
+          <option value="s2.1-pro-free">s2.1-pro-free (free tier)</option>
+        </select>
+      </div>
+      <a class="tb-btn tb-link" href="https://fish.audio/discovery/" target="_blank" rel="noopener">Find voices on fish.audio ↗</a>
+    </div>
+  </div>
+</div>
+
+<!-- WITHOUT THE HELPER (GitHub Pages or a plain file) -->
+<div id="no-helper" class="dialog-msg" hidden>
+  <div>
+    <strong>The voice tool needs the local helper.</strong><br>
+    Run <code>npm start</code> in the TTFUI folder, then open <code>localhost:8000/voice.html</code>.
+    Put your fish.audio key in <code>.TTFUI/.env</code> as <code>FISH_API_KEY=...</code>.
+    See "Voice-over" in the README.
+    <div id="no-helper-detail" class="field-hint"></div>
+  </div>
+</div>
+
+  <script type="module" src="js/voice.js"></script>
+</body>
+</html>

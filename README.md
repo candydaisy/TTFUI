@@ -115,12 +115,27 @@ TTFUI is built with plain HTML, CSS, and JavaScript (ES modules), so there is no
    git clone https://github.com/candydaisy/TTFUI.git
    cd TTFUI
    ```
-2. Serve the folder with any static web server:
+2. Start the local helper (Node.js 18+, nothing to install):
    ```bash
-   python3 -m http.server 8000
+   npm start
    # Open http://localhost:8000
    ```
+   Any static web server (`python3 -m http.server 8000`) also works for the editor; the Voice page needs `npm start`.
    Opening `index.html` directly from disk (`file://`) does not work, because browsers block ES modules loaded from local files.
+
+### Voice-over (fish.audio)
+The **Voice** page (`voice.html`, linked from *File* and from Relationships) generates voice lines with [fish.audio](https://fish.audio) and saves them where the game plays them. fish.audio does not accept requests from web pages, so this page only works through the local helper:
+
+1. Keep this folder inside the game folder (as `.TTFUI/`), or set `GAME_DIR=/path/to/UntitledIllness`.
+2. Create `.TTFUI/.env` with your key (it is git-ignored and never sent to the page):
+   ```
+   FISH_API_KEY=your-key-here
+   ```
+3. `npm start`, then open `http://localhost:8000/voice.html`.
+4. **Casting:** paste a voice ID from the [fish.audio library](https://fish.audio/discovery/) for each speaker and press *Try*. Saved to `Story/voices.json`.
+5. Pick a route, press *Gen* on a line's EN or TH slot (or tick lines and *Generate ticked*), listen, then *Keep* or *Redo*. Each generation uses fish.audio credits; the batch button shows the character count first.
+
+Kept files go to `Assets/audio/voice/<Route>/<nodeId>.mp3` (English) and `<nodeId>_th.mp3` (Thai). The game plays the file for the current language when the line shows, and stays silent when there is none. A node's `voice` key still overrides the name (`"voice": "kay_wake_3"` plays `Assets/audio/voice/kay_wake_3.mp3`). Open the Godot editor once after adding files so it imports them.
 
 ### Run Tests
 The graph logic (export/import round-trips, character modes, diagnostics, playtest rules, layout, share codes) and the relationship web logic have unit tests that run on Node.js 18+ with no dependencies:
@@ -216,6 +231,8 @@ Secret conditions are `flag_true` / `flag_false` (with `flag`) or `<meter>_above
 TTFUI/
 ├── index.html          # Flow graph editor: layout, canvas layers, and modal UI
 ├── relations.html      # Relationship web editor
+├── voice.html          # Voice-over tool (needs npm start)
+├── serve.js            # npm start: local server + fish.audio / voice file API
 ├── style.css           # Dark theme styling, graph node components, and HUD
 ├── js/
 │   ├── main.js         # Entry point: startup, data-action button wiring, keyboard shortcuts
@@ -233,9 +250,11 @@ TTFUI/
 │   ├── io.js           # Export, import, autosave, share links
 │   ├── relations-data.js # Pure relationship web logic: read, check, edit, write, layout
 │   ├── relations.js    # Relationship web editor UI
+│   ├── voice-data.js   # Pure voice logic: lines to voice, file names, batches
+│   ├── voice.js        # Voice tool UI
 │   └── utils.js        # HTML escaping, toasts
 ├── tests/              # Unit tests (node --test)
-├── package.json        # Only for `npm test`; no dependencies
+├── package.json        # `npm start` / `npm test`; no dependencies
 ├── LICENSE             # MIT License
 └── README.md           # Documentation & guide
 ```

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { voiceLines, fileName, speakersOf } from '../js/voice-data.js';
+import { voiceLines, fileName, speakersOf, batchSlots } from '../js/voice-data.js';
 
 const GRAPH = { a: { speaker: 'K', text: 'Hi {there|F}.' }, b: { text: '' }, c: { text: 'Yo' } };
 
@@ -22,4 +22,21 @@ test('fileName adds _th for Thai', () => {
 
 test('speakersOf lists each speaker once, narrator as an empty string', () => {
   assert.deepEqual(speakersOf(voiceLines(GRAPH, null)), ['K', '']);
+});
+
+test('batchSlots picks ticked, cast, unvoiced slots that have text, without pending takes', () => {
+  const lines = [
+    { id: 'a', speaker: 'K', en: 'Hi', th: 'สวัสดี' },
+    { id: 'b', speaker: 'F', en: 'Yo', th: '' },
+    { id: 'c', speaker: 'K', en: 'Bye', th: 'ลาก่อน' },
+    { id: 'd', speaker: '', en: 'Rain.', th: '' },
+  ];
+  const slots = batchSlots(lines, {
+    ticked: new Set(['a', 'b', 'c', 'd']),
+    voices: { K: 'k1', '': 'n1' },          // F is not cast
+    files: new Set(['a.mp3']),               // a's English is already voiced
+    pending: new Set(['c|th']),              // c's Thai has a take waiting
+  });
+  assert.deepEqual(slots.map(s => `${s.id}|${s.lang}`), ['a|th', 'c|en', 'd|en']);
+  assert.equal(slots.reduce((n, s) => n + s.text.length, 0), 'สวัสดี'.length + 3 + 5);
 });
