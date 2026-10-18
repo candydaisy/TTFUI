@@ -237,6 +237,11 @@
   .node:hover { border-color: var(--text-dim); }
   .node:hover { border-left-color: var(--accent); }
   .node.selected { border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .node.node-new { animation: nodeIn 0.22s ease-out; }
+  .node.node-linked { animation: nodeLinked 0.5s ease-out; }
+  @keyframes nodeIn { from { opacity: 0; transform: scale(0.9); } }
+  @keyframes nodeLinked { from { box-shadow: 0 0 0 6px rgba(88,101,242,0.5); } }
+  @media (prefers-reduced-motion: reduce) { .node.node-new, .node.node-linked { animation: none; } }
   .node.type-secret { border-left-color: var(--danger); }
   .node.type-narration { border-left-color: var(--info); }
   .node.type-choice { border-left-color: var(--success); }
@@ -584,6 +589,9 @@
     background: var(--surface2);
     border: 1px solid rgba(88,101,242,0.3);
   }
+  #boot-error { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); display: block; z-index: 3000; }
+  #boot-error[hidden] { display: none; }
+  #boot-error code { color: var(--text); }
   .dialog-msg.ok { color: var(--success); background: rgba(35,165,90,0.15); border-color: rgba(35,165,90,0.3); }
   .dialog-msg.error { color: var(--danger); background: rgba(218,55,60,0.1); border-color: rgba(218,55,60,0.3); }
   .diag-summary { font-size: 11px; font-weight: 600; padding: 2px 8px; margin-left: 8px; border-radius: 12px; background: var(--surface2); vertical-align: middle; }

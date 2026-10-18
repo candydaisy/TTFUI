@@ -475,6 +475,16 @@ export function setupCanvasEvents() {
 }
 
 // Connect an output port to a target node (replacing that port's old link).
+// Replays a one-shot CSS animation class on a node.
+export function flashNode(id, cls) {
+  const el = document.getElementById('node-' + id);
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth; // restart the animation if it is already running
+  el.classList.add(cls);
+  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+}
+
 // A wire dropped on empty canvas makes the next node there, already connected.
 function dropWire(target, clientX, clientY) {
   if (!target || !target.closest('#canvas-wrap') || target.closest('.node, #minimap, #search-bar')) return;
@@ -503,6 +513,7 @@ function connectPorts(fromId, port, toId, record = true) {
   renderConnections();
   renderSidebar();
   markDirty();
+  flashNode(toId, 'node-linked');
 }
 
 // ================================

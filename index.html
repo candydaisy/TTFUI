@@ -305,6 +305,16 @@
   <line id="temp-line-el" x1="0" y1="0" x2="0" y2="0" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4" opacity="0.7"/>
 </svg>
 
+  <div id="boot-error" class="dialog-msg error" hidden>
+    The editor didn't start. Browsers block its scripts when index.html is opened as a file.
+    Use the live demo (candydaisy.github.io/TTFUI) or serve this folder, e.g. <code>python -m http.server</code>, then open localhost:8000.
+  </div>
   <script type="module" src="js/main.js"></script>
+  <script>
+    // main.js fills the mode menu at startup; empty after load means it never ran
+    window.addEventListener('load', () => {
+      if (!document.getElementById('mode-select').options.length) document.getElementById('boot-error').hidden = false;
+    });
+  </script>
 </body>
 </html>

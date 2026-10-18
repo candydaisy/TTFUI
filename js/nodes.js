@@ -7,7 +7,7 @@ import { createNode, remapRefs, remapConnections, computeLayout, buildConnection
 import { pushHistory } from './history.js';
 import {
   createNodeEl, updateNodeEl, rebuildNodeElements, renderConnections, selectNode,
-  setSelection, updateSelectionVisuals, updateEmptyHint, screenToCanvas, resetZoom
+  setSelection, updateSelectionVisuals, updateEmptyHint, screenToCanvas, resetZoom, flashNode
 } from './canvas.js';
 import { renderSidebar } from './sidebar.js';
 import { runDiagnostics } from './diagnostics.js';
@@ -44,6 +44,7 @@ export function addNode(clientX, clientY) {
   state.nodes[id] = createNode(id, x, y);
 
   createNodeEl(id);
+  flashNode(id, 'node-new');
   renderConnections();
   selectNode(id);
   updateEmptyHint();
