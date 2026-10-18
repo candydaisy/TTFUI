@@ -38,6 +38,17 @@
   <div id="sidebar">
     <div id="sidebar-header">Casting</div>
     <div id="sidebar-content">
+      <div id="browser-settings" hidden>
+        <div class="field-group">
+          <div class="field-label">fish.audio key</div>
+          <input class="field-input mono" id="key-input" type="password" autocomplete="off" placeholder="fish.audio → API keys">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Relay URL</div>
+          <input class="field-input mono" id="relay-input" autocomplete="off" spellcheck="false" placeholder="https://….workers.dev">
+        </div>
+        <p class="field-hint">Both stay in this browser.</p>
+      </div>
       <p class="field-hint">Paste a fish.audio voice ID for each speaker, then press Try to hear it. Saved to Story/voices.json.</p>
       <div id="casting-list"></div>
       <div class="field-group">
@@ -57,11 +68,14 @@
 <!-- WITHOUT THE HELPER (GitHub Pages or a plain file) -->
 <div id="no-helper" class="dialog-msg" hidden>
   <div>
-    <strong>The voice tool needs the local helper.</strong><br>
-    Run <code>npm start</code> in the TTFUI folder, then open <code>localhost:8000/voice.html</code>.
-    Put your fish.audio key in <code>.TTFUI/.env</code> as <code>FISH_API_KEY=...</code>.
-    See "Voice-over" in the README.
-    <div id="no-helper-detail" class="field-hint"></div>
+    <strong>Open your game folder to start.</strong>
+    <p>Works in Chrome or Edge. Then paste your fish.audio key and relay URL under Casting.
+      The relay is free and set up once: <a href="https://github.com/candydaisy/TTFUI#voice-over-on-the-website" target="_blank" rel="noopener">how to make one</a>.</p>
+    <button class="tb-btn success" id="open-folder-btn" data-action="openFolder">Open game folder…</button>
+    <p id="no-picker" class="vl-warn" hidden>This browser can't open folders. Use Chrome or Edge, or the way below.</p>
+    <p class="field-hint">Or on your computer: run <code>npm start</code> in the TTFUI folder and open <code>localhost:8000/voice.html</code>,
+      with <code>FISH_API_KEY=...</code> in <code>.TTFUI/.env</code>.</p>
+    <div id="no-helper-detail" class="vl-warn"></div>
   </div>
 </div>
 

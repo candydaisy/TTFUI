@@ -120,11 +120,13 @@ TTFUI is built with plain HTML, CSS, and JavaScript (ES modules), so there is no
    npm start
    # Open http://localhost:8000
    ```
-   Any static web server (`python3 -m http.server 8000`) also works for the editor; the Voice page needs `npm start`.
+   Any static web server (`python3 -m http.server 8000`) also works for the editor; the Voice page then works the website way (below).
    Opening `index.html` directly from disk (`file://`) does not work, because browsers block ES modules loaded from local files.
 
 ### Voice-over (fish.audio)
-The **Voice** page (`voice.html`, linked from *File* and from Relationships) generates voice lines with [fish.audio](https://fish.audio) and saves them where the game plays them. fish.audio does not accept requests from web pages, so this page only works through the local helper:
+The **Voice** tab (`voice.html`) generates voice lines with [fish.audio](https://fish.audio) and saves them where the game plays them. fish.audio does not accept requests from web pages, so something has to pass them on: the local helper (`npm start`, below) or a free relay ([on the website](#voice-over-on-the-website)).
+
+With the local helper:
 
 1. Keep this folder inside the game folder (as `.TTFUI/`), or set `GAME_DIR=/path/to/UntitledIllness`.
 2. Create `.TTFUI/.env` with your key (it is git-ignored and never sent to the page):
@@ -134,6 +136,17 @@ The **Voice** page (`voice.html`, linked from *File* and from Relationships) gen
 3. `npm start`, then open `http://localhost:8000/voice.html`.
 4. **Casting:** paste a voice ID from the [fish.audio library](https://fish.audio/discovery/) for each speaker and press *Try*. Saved to `Story/voices.json`.
 5. Pick a route, press *Gen* on a line's EN or TH slot (or tick lines and *Generate ticked*), listen, then *Keep* or *Redo*. Each generation uses fish.audio credits; the batch button shows the character count first.
+
+### Voice-over on the website
+On [the website](https://candydaisy.github.io/TTFUI/voice.html) the Voice tab reads and writes your game folder directly (Chrome or Edge; Firefox and Safari can't open folders) and sends speech through a relay you make once on Cloudflare (free, no card):
+
+1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com), open **Workers & Pages → Create → Worker**, name it (e.g. `ttfui-relay`) and press **Deploy**.
+2. Press **Edit code**, replace everything with [`relay/worker.js`](relay/worker.js), and press **Deploy** again.
+3. Copy the worker's address (`https://ttfui-relay.<you>.workers.dev`).
+4. On the Voice tab press **Open game folder…**, pick the `UntitledIllness` folder and allow editing.
+5. Paste your fish.audio key (fish.audio → API keys) and the relay address under *Casting*. Then cast and generate as above.
+
+The relay only accepts speech requests from this site (`SITES` at the top of `relay/worker.js`; a fork on another account adds its own) and stores nothing: the key is sent with each request. The key is saved in this browser's storage for the site, so don't do this on a shared computer. The folder has to be opened again after reloading the page.
 
 Kept files go to `Assets/audio/voice/<Route>/<nodeId>.mp3` (English) and `<nodeId>_th.mp3` (Thai). The game plays the file for the current language when the line shows, and stays silent when there is none. A node's `voice` key still overrides the name (`"voice": "kay_wake_3"` plays `Assets/audio/voice/kay_wake_3.mp3`). Open the Godot editor once after adding files so it imports them.
 
@@ -231,8 +244,9 @@ Secret conditions are `flag_true` / `flag_false` (with `flag`) or `<meter>_above
 TTFUI/
 ├── index.html          # Flow graph editor: layout, canvas layers, and modal UI
 ├── relations.html      # Relationship web editor
-├── voice.html          # Voice-over tool (needs npm start)
+├── voice.html          # Voice-over tool (npm start, or a game folder + relay)
 ├── serve.js            # npm start: local server + fish.audio / voice file API
+├── relay/worker.js     # Cloudflare Worker that passes speech requests to fish.audio (website)
 ├── style.css           # Dark theme styling, graph node components, and HUD
 ├── js/
 │   ├── main.js         # Entry point: startup, data-action button wiring, keyboard shortcuts
@@ -252,6 +266,7 @@ TTFUI/
 │   ├── relations.js    # Relationship web editor UI
 │   ├── voice-data.js   # Pure voice logic: lines to voice, file names, batches
 │   ├── voice.js        # Voice tool UI
+│   ├── voice-folder.js # The helper's API in the page, for the website
 │   └── utils.js        # HTML escaping, toasts
 ├── tests/              # Unit tests (node --test)
 ├── package.json        # `npm start` / `npm test`; no dependencies

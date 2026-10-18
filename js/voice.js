@@ -2,12 +2,16 @@
 // VOICE TOOL (voice.html)
 // ================================
 // Cast speakers to fish.audio voices, generate takes for chosen lines, listen,
-// and keep the good ones. Everything goes through the local helper (serve.js):
-// it holds the API key and writes Assets/audio/voice/<Route>/<id>[_th].mp3.
+// and keep the good ones. Everything goes through /api requests: the local
+// helper (serve.js) answers them, or on the website voice-folder.js does, with
+// a game folder the person opens. Files land in Assets/audio/voice/<Route>/<id>[_th].mp3.
 import { escapeHTML, showToast } from './utils.js';
 import { voiceLines, fileName, speakersOf, batchSlots } from './voice-data.js';
+import { folderApi } from './voice-folder.js';
 
 const ROUTE_KEY = 'ttfui_voice_route';
+const FISH_KEY = 'ttfui_fish_key';
+const RELAY_KEY = 'ttfui_fish_relay';
 const LANGS = { en: 'EN', th: 'TH' };
 
 const v = {
@@ -28,14 +32,20 @@ const pendingHere = () => new Set([...v.takes.keys()].filter(k => k.startsWith(v
 const casting = () => v.project.voices;
 const lineById = id => v.lines.find(l => l.id === id);
 const speakerName = s => s || 'Narrator';
+const keyInput = document.getElementById('key-input');
+const relayInput = document.getElementById('relay-input');
 
-// fetch that throws the helper's { error } message on failure
+// who answers /api: the helper, until a game folder is opened in the browser
+let inBrowser = false;
+let request = (method, url, body) => fetch(url, {
+  method,
+  body: body instanceof Blob || body === undefined ? body : JSON.stringify(body),
+  headers: body instanceof Blob || body === undefined ? {} : { 'Content-Type': 'application/json' },
+});
+
+// throws the { error } message on failure
 async function api(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    body: body instanceof Blob || body === undefined ? body : JSON.stringify(body),
-    headers: body instanceof Blob || body === undefined ? {} : { 'Content-Type': 'application/json' },
-  });
+  const res = await request(method, url, body);
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
     try { message = (await res.json()).error || message; } catch { /* not JSON */ }
@@ -56,17 +66,13 @@ async function load() {
   try {
     v.project = await (await api('GET', '/api/project')).json();
   } catch (err) {
-    document.getElementById('main').hidden = true;
-    document.getElementById('no-helper').hidden = false;
-    document.querySelectorAll('#route-select, #filter-select, #search-input, #gen-ticked-btn').forEach(el => { el.hidden = true; });
+    showSetup(true);
     // a plain static host has no /api, so its 404 page isn't worth showing
-    if (!/^404\b/.test(err.message)) document.getElementById('no-helper-detail').textContent = err.message;
+    document.getElementById('no-helper-detail').textContent = /^404\b/.test(err.message) ? '' : err.message;
     return;
   }
-  const keyEl = document.getElementById('key-status');
-  keyEl.textContent = v.project.hasKey ? '● fish.audio key set' : '○ no fish.audio key';
-  keyEl.title = v.project.hasKey ? '' : 'Put FISH_API_KEY=... in .TTFUI/.env and restart npm start';
-  keyEl.classList.toggle('vl-warn', !v.project.hasKey);
+  showSetup(false);
+  renderKeyStatus();
 
   const select = document.getElementById('route-select');
   select.innerHTML = v.project.routes.map(r => `<option value="${escapeHTML(r.name)}">${escapeHTML(r.name)}</option>`).join('');
@@ -74,6 +80,32 @@ async function load() {
   try { saved = localStorage.getItem(ROUTE_KEY) || ''; } catch { /* storage blocked */ }
   selectRoute(v.project.routes.some(r => r.name === saved) ? saved : (v.project.routes[0] || {}).name || '');
   document.getElementById('model-select').value = casting().model || 's2.1-pro';
+}
+
+function showSetup(on) {
+  document.getElementById('main').hidden = on;
+  document.getElementById('no-helper').hidden = !on;
+  document.querySelectorAll('#route-select, #filter-select, #search-input, #gen-ticked-btn').forEach(el => { el.hidden = on; });
+  document.getElementById('browser-settings').hidden = !inBrowser;
+  const canPick = 'showDirectoryPicker' in window;
+  document.getElementById('open-folder-btn').hidden = !canPick;
+  document.getElementById('no-picker').hidden = canPick;
+}
+
+async function openFolder() {
+  let game;
+  try { game = await window.showDirectoryPicker({ id: 'ttfui-game', mode: 'readwrite' }); } catch { return; } // cancelled
+  inBrowser = true;
+  request = folderApi(game, () => ({ key: keyInput.value.trim(), relay: relayInput.value.trim() }));
+  load();
+}
+
+function renderKeyStatus() {
+  const keyEl = document.getElementById('key-status');
+  const ok = v.project.hasKey;
+  keyEl.textContent = ok ? '● fish.audio key set' : inBrowser ? '○ needs key + relay' : '○ no fish.audio key';
+  keyEl.title = ok ? '' : inBrowser ? 'Paste your fish.audio key and relay URL under Casting' : 'Put FISH_API_KEY=... in .TTFUI/.env and restart npm start';
+  keyEl.classList.toggle('vl-warn', !ok);
 }
 
 function selectRoute(name) {
@@ -265,8 +297,8 @@ const ACTIONS = {
     generate({ route: v.route, id: line.id, lang, speaker: line.speaker, text: line[lang] }).catch(() => {});
   },
   playTake: el => play(v.takes.get(slotKey(v.route, el.dataset.id, el.dataset.lang)).url),
-  // the query defeats the browser cache after a Redo + Keep replaced the file
-  playSaved: el => play(`/api/voice/${encodeURIComponent(v.route)}/${fileName(el.dataset.id, el.dataset.lang)}?t=${Date.now()}`),
+  playSaved: el => api('GET', `/api/voice/${encodeURIComponent(v.route)}/${fileName(el.dataset.id, el.dataset.lang)}`)
+    .then(res => res.blob()).then(blob => play(URL.createObjectURL(blob)), err => showToast(err.message)),
   keep: el => keep(v.route, el.dataset.id, el.dataset.lang)
     .then(() => showToast(`Saved ${v.route}/${fileName(el.dataset.id, el.dataset.lang)}`), err => showToast(err.message))
     .then(renderList),
@@ -274,6 +306,7 @@ const ACTIONS = {
   genTicked: () => genTicked(),
   keepAll: () => keepAll(),
   tryVoice: el => tryVoice(el.dataset.speaker),
+  openFolder: () => openFolder(),
 };
 
 document.addEventListener('click', e => {
@@ -303,6 +336,17 @@ document.getElementById('model-select').addEventListener('change', e => {
   saveCastingSoon();
 });
 document.getElementById('route-select').addEventListener('change', e => selectRoute(e.target.value));
+try {
+  keyInput.value = localStorage.getItem(FISH_KEY) || '';
+  relayInput.value = localStorage.getItem(RELAY_KEY) || '';
+} catch { /* storage blocked */ }
+for (const [input, storeKey] of [[keyInput, FISH_KEY], [relayInput, RELAY_KEY]]) {
+  input.addEventListener('input', () => {
+    try { localStorage.setItem(storeKey, input.value.trim()); } catch { /* storage blocked */ }
+    v.project.hasKey = Boolean(keyInput.value.trim() && relayInput.value.trim());
+    renderKeyStatus();
+  });
+}
 window.addEventListener('beforeunload', e => { if (v.takes.size) e.preventDefault(); });
 document.getElementById('filter-select').addEventListener('change', renderList);
 document.getElementById('search-input').addEventListener('input', renderList);
