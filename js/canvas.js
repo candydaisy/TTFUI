@@ -76,7 +76,24 @@ function zoomToward(newZoom) {
 }
 export function zoomIn()  { zoomToward(state.zoom + 0.1); }
 export function zoomOut() { zoomToward(state.zoom - 0.1); }
-export function resetZoom() { state.zoom = 1; state.pan = { x: 60, y: 60 }; applyTransform(); }
+// Fits the whole story in view (never zooming past 100%).
+export function resetZoom() {
+  const nodes = Object.values(state.nodes);
+  if (!nodes.length) { state.zoom = 1; state.pan = { x: 60, y: 60 }; applyTransform(); return; }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    const el = document.getElementById('node-' + n.id);
+    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + (el ? el.offsetWidth : 250));
+    maxY = Math.max(maxY, n.y + (el ? el.offsetHeight : 120));
+  }
+  const wrap = document.getElementById('canvas-wrap');
+  const pad = 60;
+  state.zoom = Math.max(0.2, Math.min(1, (wrap.clientWidth - pad * 2) / (maxX - minX), (wrap.clientHeight - pad * 2) / (maxY - minY)));
+  state.pan.x = (wrap.clientWidth - (maxX - minX) * state.zoom) / 2 - minX * state.zoom;
+  state.pan.y = (wrap.clientHeight - (maxY - minY) * state.zoom) / 2 - minY * state.zoom;
+  applyTransform();
+}
 
 // Convert a client (screen) position to canvas coordinates.
 export function screenToCanvas(clientX, clientY) {
@@ -221,6 +238,10 @@ export function setupCanvasEvents() {
     // keep the canvas point under the cursor fixed
     zoomAt(state.zoom + delta, e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
+
+  // the empty-state buttons shouldn't start a marquee or a touch pan
+  const hint = document.getElementById('empty-hint');
+  ['mousedown', 'touchstart'].forEach(t => hint.addEventListener(t, e => e.stopPropagation()));
 
   wrap.addEventListener('mousedown', e => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {

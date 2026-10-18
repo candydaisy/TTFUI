@@ -7,7 +7,7 @@ import { createNode, remapRefs, remapConnections, computeLayout, buildConnection
 import { pushHistory } from './history.js';
 import {
   createNodeEl, updateNodeEl, rebuildNodeElements, renderConnections, selectNode,
-  setSelection, updateSelectionVisuals, updateEmptyHint, screenToCanvas
+  setSelection, updateSelectionVisuals, updateEmptyHint, screenToCanvas, resetZoom
 } from './canvas.js';
 import { renderSidebar } from './sidebar.js';
 import { runDiagnostics } from './diagnostics.js';
@@ -217,6 +217,7 @@ export function applyLayout() {
     updateNodeEl(id);
   });
   renderConnections();
+  resetZoom();
 }
 
 export function autoLayout() {
@@ -238,6 +239,7 @@ export function loadExample() {
   state.connections = buildConnections(state.nodes);
   rebuildNodeElements();
   renderConnections();
+  resetZoom();
   updateEmptyHint();
   markDirty();
 }

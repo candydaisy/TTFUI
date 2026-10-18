@@ -538,10 +538,12 @@
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
-    pointer-events: none;
     color: var(--text-dim);
   }
   #empty-hint p { font-size: 13px; line-height: 1.7; }
+  #empty-hint .empty-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0; }
+  .empty-actions .tb-btn { padding: 8px 16px; font-size: 13px; }
 
   /* ---- CONTEXT MENU ---- */
   #ctx-menu {
