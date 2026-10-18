@@ -40,7 +40,7 @@ function updateDiagButton() {
     btn.textContent = `${warnings} Issue${warnings > 1 ? 's' : ''}`;
     btn.style.color = 'var(--warning)';
   } else {
-    btn.textContent = `Graph Valid`;
+    btn.textContent = 'No issues';
     btn.style.color = 'var(--success)';
   }
 }

@@ -3,40 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Flow Graph Editor</title>
+<title>TTFUI</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- TOOLBAR -->
 <div id="toolbar">
-  <div class="logo">FLOW</div>
-  <a class="tb-btn tb-link" href="relations.html" title="Edit Story/relationships.json">Relationships</a>
-  <div class="tb-sep"></div>
+  <div class="logo">TTFUI</div>
   <button class="tb-btn" data-action="addNode">+ Node</button>
+  <button class="tb-btn success" id="play-btn" data-action="openPlaytest" title="Playtest Story (P)">▶ Play</button>
+  <div class="tb-sep"></div>
   <button class="tb-btn" id="undo-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>Undo</button>
   <button class="tb-btn" id="redo-btn" data-action="redo" title="Redo (Ctrl+Y)" disabled>Redo</button>
-  <button class="tb-btn" data-action="autoLayout">Auto Layout</button>
   <button class="tb-btn" data-action="openSearch" title="Search nodes (Ctrl+F)">Search</button>
   <button class="tb-btn" data-action="openCharacters" title="Character presets: names, colors, emotions">Characters</button>
   <select class="tb-select" id="mode-select" title="Character mode: which meters, choice types and fields this story uses (same as the Mode on the story scene in Godot)"></select>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" data-action="zoomIn">+</button>
-  <span id="zoom-label">100%</span>
-  <button class="tb-btn" data-action="zoomOut">−</button>
-  <button class="tb-btn" data-action="resetZoom" title="Fit the whole story in view">Fit</button>
-  <button class="tb-btn" id="minimap-btn" data-action="toggleMinimap" title="Show or hide the minimap">Minimap</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" data-action="clearAll" style="color:var(--danger)">Clear</button>
-  <div class="tb-sep"></div>
-  <button class="tb-btn" id="diag-btn" data-action="toggleDiagnostics" title="Story Diagnostics">Graph Valid</button>
+  <button class="tb-btn" id="diag-btn" data-action="toggleDiagnostics" title="Story check: dead ends, broken links, unknown speakers">No issues</button>
   <div style="flex:1"></div>
-  <!--<button class="tb-btn" id="share-btn" data-action="openShareModal" style="border-color:rgba(88,101,242,0.4);color:var(--accent)">Share</button>-->
   <span id="save-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);transition:color 0.3s;">saved</span>
-  <div class="tb-sep"></div>
-  <button class="tb-btn success" id="play-btn" data-action="openPlaytest" title="Playtest Story (P)">Play</button>
-  <button class="tb-btn" data-action="loadExample">Load Example</button>
-  <button class="tb-btn" data-action="openImport">Import JSON</button>
+  <details class="tb-menu">
+    <summary class="tb-btn">File ▾</summary>
+    <div class="tb-menu-list">
+      <button class="tb-btn" data-action="loadExample">Load example</button>
+      <button class="tb-btn" data-action="openImport">Import JSON…</button>
+      <a class="tb-btn tb-link" href="relations.html" title="Edit Story/relationships.json">Relationships</a>
+      <div class="tb-menu-sep"></div>
+      <button class="tb-btn" data-action="clearAll" style="color:var(--danger)">Clear everything</button>
+    </div>
+  </details>
   <button class="tb-btn" data-action="exportCode" style="border-color:rgba(88,101,242,0.4);color:var(--accent)">Export JSON</button>
 </div>
 
@@ -61,6 +56,14 @@
         <button class="tb-btn" data-action="openImport">Import JSON</button>
       </div>
       <p>Then drag from a line's right edge onto empty space to write the next one.</p>
+    </div>
+    <div id="view-tools">
+      <button class="tb-btn" data-action="zoomOut" title="Zoom out">−</button>
+      <span id="zoom-label">100%</span>
+      <button class="tb-btn" data-action="zoomIn" title="Zoom in">+</button>
+      <button class="tb-btn" data-action="resetZoom" title="Fit the whole story in view">Fit</button>
+      <button class="tb-btn" data-action="autoLayout" title="Tidy the graph into columns">Auto Layout</button>
+      <button class="tb-btn" id="minimap-btn" data-action="toggleMinimap" title="Show or hide the minimap">Minimap</button>
     </div>
     <div id="minimap" title="Minimap: click or drag to move the view"><canvas id="minimap-canvas"></canvas></div>
     <div id="touch-hint">2 fingers to pan · pinch to zoom</div>

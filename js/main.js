@@ -116,6 +116,10 @@ const ACTIONS = {
 
 function setupActions() {
   document.addEventListener('click', e => {
+    // a menu closes on a click outside it or on one of its items
+    document.querySelectorAll('.tb-menu[open]').forEach(menu => {
+      if (!menu.contains(e.target) || e.target.closest('.tb-menu-list [data-action], .tb-menu-list a')) menu.open = false;
+    });
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = ACTIONS[el.dataset.action];

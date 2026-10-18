@@ -70,7 +70,7 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - Export `flow_graph` JSON in the same layout as `Story/<Name>/flow_graph.json` (tabs, one choice per line), so an imported story exports back to the identical file and git diffs only show real changes.
   - Keys the editor doesn't know about are kept, so nothing is lost on export.
   - Import existing `.json` files via drag-and-drop or file upload.
-  - Built-in example story (`Load Example`) for quick demonstration.
+  - Built-in example story (*File > Load example*, or the button on the empty canvas) for quick demonstration.
   - Automatic persistence to browser LocalStorage so work is never lost.
 
 ---
@@ -80,6 +80,7 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 | Action | Shortcut / Gesture |
 |---|---|
 | **Add Node** | Right-click canvas > *Add Node Here* or `+ Node` button |
+| **Add Next Line** | Drag from a node's output onto empty canvas: a new node is created there, already connected |
 | **Undo** | `Ctrl + Z` (or Undo button) |
 | **Redo** | `Ctrl + Y` / `Ctrl + Shift + Z` (or Redo button) |
 | **Box / Marquee Select** | Click & drag on canvas background |
@@ -88,7 +89,9 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
 | **Export / Save As** | `Ctrl + S` or Export JSON button |
 | **Search Nodes** | `Ctrl + F` (Search by speaker, dialogue, ID, flags) |
 | **Playtest Story** | `P` key or Play button |
-| **Advance Dialogue** | `Space` key in Playtest mode |
+| **Advance Dialogue** | `Space` key in Playtest mode (first press shows the whole line) |
+| **Playtest Debug** | *Debug* button in the playtest: shows node IDs, meters, flags and what each choice does |
+| **Fit View** | *Fit* in the bottom-left view tools (also happens after load, import and Auto Layout) |
 | **Copy Node(s)** | `Ctrl + C` |
 | **Paste Node(s)** | `Ctrl + V` |
 | **Duplicate Node(s)** | `Ctrl + D` |

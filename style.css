@@ -112,6 +112,45 @@
 
   .tb-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
 
+  .tb-menu { position: relative; }
+  .tb-menu > summary { list-style: none; user-select: none; }
+  .tb-menu > summary::-webkit-details-marker { display: none; }
+  .tb-menu-list {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    z-index: 200;
+  }
+  .tb-menu-list .tb-btn { background: transparent; text-align: left; }
+  .tb-menu-list .tb-btn:hover { background: var(--surface3); }
+  .tb-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* view controls float over the canvas, bottom-left (the minimap is bottom-right) */
+  #view-tools {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: rgba(30, 31, 34, 0.88);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    z-index: 60;
+  }
+  #view-tools .tb-btn { padding: 4px 10px; font-size: 12px; }
+
   #zoom-label {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -582,15 +621,11 @@
     #toolbar {
       height: auto;
       min-height: 48px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
       padding: 8px 12px;
-      gap: 7px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
+      gap: 6px;
     }
-    #toolbar::-webkit-scrollbar { display: none; }
+    #toolbar .logo { display: none; }
+    #view-tools { left: 8px; bottom: 8px; }
 
     .tb-btn { padding: 6px 10px; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
     .tb-sep { flex-shrink: 0; }
@@ -1064,7 +1099,7 @@
   }
   .tb-btn.active { color: var(--accent); border-color: rgba(88,101,242,0.5); }
   @media (max-width: 768px) {
-    #minimap { width: 150px; height: 100px; right: 8px; bottom: 8px; }
+    #minimap { width: 150px; height: 100px; right: 8px; top: 8px; bottom: auto; }
   }
 
 /* ================================
