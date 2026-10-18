@@ -1,4 +1,6 @@
   :root {
+    color-scheme: dark; /* dark scrollbars and form controls */
+    scrollbar-color: var(--border) transparent;
     --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
@@ -51,7 +53,7 @@
   }
 
   #toolbar .logo {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--text);
     margin-right: 10px;
@@ -85,12 +87,12 @@
   #pt-timer { height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
   #pt-timer > div { height: 100%; width: 100%; background: var(--warning); }
   .tag-timed { background: rgba(240,178,50,0.15); color: var(--warning); }
-  .node-choice-delta { font-size: 9px; font-family: var(--font-mono); }
+  .node-choice-delta { font-size: 10px; font-family: var(--font-mono); }
   .node-choice-delta.bad { color: var(--danger); }
   .node-choice-delta.good { color: var(--success); }
   .field-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
   .choice-meters { gap: 4px; }
-  .choice-meter-label { width: 64px; font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .choice-meter-label { width: 64px; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
   .tb-select {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -103,6 +105,8 @@
   }
   .tb-btn.danger:hover { background: var(--danger); color: #fff; }
   .tb-btn.success { background: var(--success); color: #fff; }
+  .tb-btn.accent { color: var(--accent); box-shadow: inset 0 0 0 1px rgba(88,101,242,0.4); }
+  .tb-btn.danger-text { color: var(--danger); }
   .tb-btn.success:hover { background: #1a8a49; }
   .tb-btn:disabled {
     opacity: 0.35;
@@ -268,7 +272,7 @@
   }
 
   .node-emotion-badge {
-    font-size: 9px;
+    font-size: 10px;
     padding: 1px 5px;
     border-radius: 3px;
     font-weight: 600;
@@ -302,7 +306,7 @@
   }
 
   .tag {
-    font-size: 9px;
+    font-size: 10px;
     padding: 1px 5px;
     border-radius: 3px;
     font-weight: 600;
@@ -329,7 +333,7 @@
   }
   .node-detail-label {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -439,7 +443,7 @@
   .field-fold > summary::before { content: '▸'; display: inline-block; width: 14px; color: var(--text-dim); }
   .field-fold[open] > summary::before { content: '▾'; }
   .field-fold > summary:hover { color: var(--accent-light); }
-  .field-filled { color: var(--accent); font-size: 8px; vertical-align: middle; margin-left: 4px; }
+  .field-filled { color: var(--accent); font-size: 10px; vertical-align: middle; margin-left: 4px; }
 
   .choices-editor { display: flex; flex-direction: column; gap: 8px; }
 
@@ -460,7 +464,7 @@
     width: 22px; height: 22px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
     transition: all 0.15s;
@@ -500,7 +504,8 @@
   .delete-node-btn:hover { background: var(--danger); color: #fff; }
 
   /* ---- OUTPUT MODAL ---- */
-  #modal-overlay {
+  /* ---- DIALOGS (export, import, characters, share, story check, playtest) ---- */
+  .overlay {
     display: none;
     position: fixed;
     inset: 0;
@@ -509,46 +514,83 @@
     align-items: center;
     justify-content: center;
   }
-  #modal-overlay.active { display: flex; }
+  .overlay.active { display: flex; }
+  #playtest-overlay { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 2500; }
 
-  #modal {
+  .dialog {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
     width: 700px;
     max-width: 95vw;
-    max-height: 80vh;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
   }
-
-  #modal-header {
+  .dialog.narrow { width: 480px; }
+  .dialog-header {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
     font-weight: 700;
-    font-size: 14px;
+    font-size: 16px;
   }
-
-  #modal-close {
+  .dialog-close {
     background: none;
     border: none;
     color: var(--text-dim);
-    font-size: 20px;
+    font-size: 16px;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 8px;
     border-radius: 4px;
   }
-  #modal-close:hover { color: var(--text); background: var(--surface2); }
+  .dialog-close:hover { color: var(--text); background: var(--surface2); }
+  .dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dialog-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .dialog-tabs { display: flex; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .dialog-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .dialog-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .dialog-note code { color: var(--success); background: var(--surface2); padding: 1px 5px; border-radius: 4px; }
+  .dialog-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-top: 8px; }
+  .dialog-msg {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border: 1px solid rgba(88,101,242,0.3);
+  }
+  .dialog-msg.ok { color: var(--success); background: rgba(35,165,90,0.15); border-color: rgba(35,165,90,0.3); }
+  .dialog-msg.error { color: var(--danger); background: rgba(218,55,60,0.1); border-color: rgba(218,55,60,0.3); }
+  .diag-summary { font-size: 11px; font-weight: 600; padding: 2px 8px; margin-left: 8px; border-radius: 12px; background: var(--surface2); vertical-align: middle; }
+  #diag-list { gap: 8px; }
 
-  #modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
-
-  #output-code {
+  .code-area {
     width: 100%;
-    height: 100%;
     min-height: 300px;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -558,17 +600,12 @@
     font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.6;
-    resize: none;
+    resize: vertical;
     outline: none;
   }
-
-  #modal-footer {
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-  }
+  .code-area.short { min-height: 70px; resize: none; color: var(--text); }
+  .code-area:focus, .field-input.mono:focus { border-color: var(--accent); }
+  .field-input.mono { font-family: var(--font-mono); font-size: 12px; }
 
   /* ---- EMPTY STATE ---- */
   #empty-hint {
@@ -580,7 +617,7 @@
     color: var(--text-dim);
   }
   #empty-hint p { font-size: 13px; line-height: 1.7; }
-  #empty-hint .empty-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  #empty-hint .empty-title { font-size: 16px; font-weight: 700; color: var(--text); }
   .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0; }
   .empty-actions .tb-btn { padding: 8px 16px; font-size: 13px; }
 
@@ -640,11 +677,12 @@
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
+    #sidebar.empty { display: none; }
 
     #canvas-wrap { flex: 1; min-height: 0; }
 
     .node { width: 180px; }
-    .node-text { font-size: 10px; }
+    .node-text { font-size: 11px; }
 
     /* bigger touch targets for ports */
     .port { width: 18px; height: 18px; }
@@ -955,7 +993,7 @@
     border-radius: 3px;
   }
   #pt-dialogue-text {
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.6;
     color: var(--text);
     white-space: pre-wrap;

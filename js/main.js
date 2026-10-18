@@ -141,8 +141,10 @@ function isTypingTarget() {
 function onEditorKeydown(e) {
   if (e.key === 'Escape') {
     closeModal();
+    closeImport();
     hideCtxMenu();
     closeShareModal();
+    document.querySelectorAll('.tb-menu[open]').forEach(menu => { menu.open = false; });
     closeCharacters();
     closeSearch();
     return;

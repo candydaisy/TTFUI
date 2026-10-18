@@ -635,14 +635,14 @@ function buildNodeHTML(id) {
     n.choices.forEach((c, i) => {
       const py = 52 + i * 22;
       choiceRowsHTML += `<div class="node-choice-row" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-right:14px;">
-        <span style="font-size:9px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
+        <span style="font-size:10px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
         <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.minigame ? escapeHTML(c.result || '?') + ': ' : ''}${escapeHTML(c.text || '...')}</span>
         ${meterNames(state.mode).map(m => {
           const v = Number(c[meterKey(m)]) || 0;
           return v ? `<span class="node-choice-delta ${changeTone(state.mode, m, v)}" title="${escapeHTML(m)}">${escapeHTML(m[0])}${v > 0 ? '+' : ''}${v}</span>` : '';
         }).join('')}
-        ${c.set_flag ? `<span style="font-size:9px;color:var(--warning);font-family:var(--font-mono);">flag: ${escapeHTML(c.set_flag)}</span>` : ''}
-        ${c.requires ? `<span style="font-size:9px;color:var(--info);font-family:var(--font-mono);">needs: ${escapeHTML(c.requires)}</span>` : ''}
+        ${c.set_flag ? `<span style="font-size:10px;color:var(--warning);font-family:var(--font-mono);">flag: ${escapeHTML(c.set_flag)}</span>` : ''}
+        ${c.requires ? `<span style="font-size:10px;color:var(--info);font-family:var(--font-mono);">needs: ${escapeHTML(c.requires)}</span>` : ''}
       </div>`;
       choicePortsHTML += `<div class="port out choice-port" data-node="${nodeAttr}" data-port="choice-${i}" style="top:${py}px" title="Choice ${i+1}: ${escapeHTML(c.text)}"></div>`;
     });

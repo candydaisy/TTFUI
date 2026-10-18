@@ -24,7 +24,7 @@
   <div class="tb-sep"></div>
   <button class="tb-btn" data-action="openFolder" title="Pick the game's Story folder: loads relationships.json and checks every flow_graph.json for missing speakers">Open Story Folder</button>
   <button class="tb-btn" data-action="openImport">Import JSON</button>
-  <button class="tb-btn" data-action="exportWeb" style="border-color:rgba(88,101,242,0.4);color:var(--accent)">Export JSON</button>
+  <button class="tb-btn accent" data-action="exportWeb">Export JSON</button>
   <input type="file" id="web-file-input" accept=".json" style="display:none;">
   <input type="file" id="web-folder-input" webkitdirectory multiple style="display:none;">
 </div>
@@ -43,20 +43,20 @@
 </div>
 
 <!-- EXPORT MODAL -->
-<div id="modal-overlay">
-  <div id="modal">
-    <div id="modal-header">
+<div id="modal-overlay" class="overlay">
+  <div class="dialog">
+    <div class="dialog-header">
       <span>Export JSON - relationships.json</span>
-      <button id="modal-close" data-action="closeExport">✕</button>
+      <button class="dialog-close" data-action="closeExport" title="Close">✕</button>
     </div>
-    <div id="modal-body">
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">Save over <code>Story/relationships.json</code> in the game. Same layout as the file in the repo.</div>
-      <textarea id="output-code" readonly spellcheck="false"></textarea>
+    <div class="dialog-body">
+      <p class="dialog-note">Save over <code>Story/relationships.json</code> in the game. Same layout as the file in the repo.</p>
+      <textarea id="output-code" class="code-area" readonly spellcheck="false"></textarea>
     </div>
-    <div id="modal-footer">
+    <div class="dialog-footer">
       <button class="tb-btn" data-action="closeExport">Close</button>
       <button class="tb-btn" data-action="downloadWeb">Download</button>
-      <button class="tb-btn" data-action="saveWebAs" style="border-color:rgba(88,101,242,0.5);color:var(--accent);">Save As...</button>
+      <button class="tb-btn accent" data-action="saveWebAs">Save As...</button>
       <button class="tb-btn success" data-action="copyWeb">Copy to Clipboard</button>
     </div>
   </div>

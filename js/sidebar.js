@@ -91,11 +91,13 @@ export function renderSidebar() {
   const content = document.getElementById('sidebar-content');
   if (!content) return;
   const count = state.selectedNodes.size;
+  // phones hide the sidebar until there is something to edit
+  document.getElementById('sidebar').classList.toggle('empty', !count && !state.nodes[state.selectedNode]);
 
   if (count > 1) {
     content.innerHTML = `
       <div style="padding: 4px 0 12px 0;">
-        <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px;">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:6px;">
           ${count} Nodes Selected
         </div>
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:14px;line-height:1.6;">

@@ -29,10 +29,10 @@
       <button class="tb-btn" data-action="openImport">Import JSON…</button>
       <a class="tb-btn tb-link" href="relations.html" title="Edit Story/relationships.json">Relationships</a>
       <div class="tb-menu-sep"></div>
-      <button class="tb-btn" data-action="clearAll" style="color:var(--danger)">Clear everything</button>
+      <button class="tb-btn danger-text" data-action="clearAll">Clear everything</button>
     </div>
   </details>
-  <button class="tb-btn" data-action="exportCode" style="border-color:rgba(88,101,242,0.4);color:var(--accent)">Export JSON</button>
+  <button class="tb-btn accent" data-action="exportCode">Export JSON</button>
 </div>
 
 
@@ -100,67 +100,61 @@
 </div>
 
 <!-- OUTPUT MODAL -->
-<div id="modal-overlay">
-  <div id="modal">
-    <div id="modal-header">
+<div id="modal-overlay" class="overlay">
+  <div class="dialog">
+    <div class="dialog-header">
       <span>Export JSON</span>
-      <button id="modal-close" data-action="closeModal">✕</button>
+      <button class="dialog-close" data-action="closeModal" title="Close (Esc)">✕</button>
     </div>
-    <div id="modal-body">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
-          <select id="export-kind" class="field-input" style="width:auto" title="Which file to export">
-            <option value="story">Story (flow_graph.json)</option>
-            <option value="translation">Translation (th.json)</option>
-          </select>
-          <label for="export-filename" style="font-size:12px;color:var(--text-dim);font-weight:600;white-space:nowrap;">File Name:</label>
-          <input type="text" id="export-filename" value="flow_graph.json" spellcheck="false" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:var(--font-mono);font-size:12px;outline:none;" placeholder="flow_graph.json">
-        </div>
-        <span style="font-size:11px;color:var(--text-dim);">Same layout as Story/&lt;Name&gt;/flow_graph.json and th.json</span>
+    <div class="dialog-body">
+      <div class="dialog-row">
+        <select id="export-kind" class="field-input" style="width:auto" title="Which file to export">
+          <option value="story">Story (flow_graph.json)</option>
+          <option value="translation">Translation (th.json)</option>
+        </select>
+        <label for="export-filename" class="dialog-note">File name</label>
+        <input type="text" id="export-filename" class="field-input mono" value="flow_graph.json" spellcheck="false" style="flex:1;min-width:160px" placeholder="flow_graph.json">
       </div>
-      <div id="export-browser-hint" style="display:none;background:var(--surface2);border:1px solid rgba(88,101,242,0.3);border-radius:6px;padding:8px 12px;font-size:11px;color:var(--text-muted);line-height:1.5;margin-bottom:10px;">
+      <p class="dialog-note">Same layout as Story/&lt;Name&gt;/flow_graph.json and th.json</p>
+      <div id="export-browser-hint" class="dialog-msg" style="display:none;">
         <strong>Firefox note:</strong> Firefox blocks websites from opening a folder browser dialog. To pick your destination folder on every download, enable <em>"Always ask you where to save files"</em> in Firefox Settings (Preferences &gt; Downloads).
       </div>
-      <textarea id="output-code" readonly spellcheck="false"></textarea>
+      <textarea id="output-code" class="code-area" readonly spellcheck="false"></textarea>
     </div>
-    <div id="modal-footer">
+    <div class="dialog-footer">
       <button class="tb-btn" data-action="closeModal">Close</button>
       <button class="tb-btn" data-action="downloadExport" title="Download to browser default downloads folder">Download</button>
-      <button class="tb-btn" id="modal-save-as-btn" data-action="saveExportAs" style="border-color:rgba(88,101,242,0.5);color:var(--accent);" title="Choose directory and file location on your computer">Save As...</button>
+      <button class="tb-btn accent" id="modal-save-as-btn" data-action="saveExportAs" title="Choose directory and file location on your computer">Save As...</button>
       <button class="tb-btn success" data-action="copyCode">Copy to Clipboard</button>
     </div>
   </div>
 </div>
 
 <!-- IMPORT MODAL -->
-<div id="import-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
-  <div id="import-modal" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:700px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14px;">
-      <span>Import JSON - paste or upload flow_graph or th.json</span>
-      <button data-action="closeImport" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;">✕</button>
+<div id="import-overlay" class="overlay">
+  <div class="dialog">
+    <div class="dialog-header">
+      <span>Import JSON</span>
+      <button class="dialog-close" data-action="closeImport" title="Close (Esc)">✕</button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:16px 20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-        <p style="font-size:12px;color:var(--text-dim);line-height:1.5;">Upload a <code style="color:var(--success);background:var(--surface2);padding:1px 5px;border-radius:3px;">.json</code> file or paste JSON code below.</p>
-        <div>
-          <select id="import-kind" class="field-input" style="width:auto" title="Story replaces the graph; Translation adds text to the nodes you have">
-            <option value="story">Story (flow_graph.json)</option>
-            <option value="translation">Translation (th.json)</option>
-          </select>
-          <input type="file" id="import-file-input" accept=".json,.txt,.gd" style="display:none;">
-          <button class="tb-btn" data-action="pickImportFile" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);">
-            Upload File (.json)
-          </button>
-        </div>
+    <div class="dialog-body">
+      <div class="dialog-row">
+        <p class="dialog-note" style="flex:1">Upload a <code>.json</code> file or paste a flow_graph or th.json below.</p>
+        <select id="import-kind" class="field-input" style="width:auto" title="Story replaces the graph; Translation adds text to the nodes you have">
+          <option value="story">Story (flow_graph.json)</option>
+          <option value="translation">Translation (th.json)</option>
+        </select>
+        <input type="file" id="import-file-input" accept=".json,.txt,.gd" style="display:none;">
+        <button class="tb-btn accent" data-action="pickImportFile">Upload File (.json)</button>
       </div>
-      <div id="import-file-status" style="display:none;margin-bottom:10px;padding:6px 12px;background:rgba(35,165,90,0.15);border:1px solid rgba(35,165,90,0.3);border-radius:6px;font-size:12px;color:var(--success);align-items:center;justify-content:space-between;">
+      <div id="import-file-status" class="dialog-msg ok" style="display:none;">
         <span id="import-file-name">Loaded: filename.json</span>
-        <button data-action="clearImportFile" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;">✕</button>
+        <button class="dialog-close" data-action="clearImportFile" title="Remove file">✕</button>
       </div>
-      <textarea id="import-code" spellcheck="false" placeholder="Paste flow_graph JSON or drop a .json file here...&#10;&#10;{&#10;  &quot;1&quot;: {&#10;    &quot;speaker&quot;: &quot;K&quot;,&#10;    &quot;text&quot;: &quot;Hello...&quot;&#10;  }&#10;}" style="width:100%;min-height:300px;background:var(--bg);border:1px solid var(--border);color:var(--success);padding:14px;border-radius:8px;font-family:var(--font-mono);font-size:11px;line-height:1.6;resize:vertical;outline:none;"></textarea>
-      <div id="import-error" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(218,55,60,0.1);border:1px solid rgba(218,55,60,0.3);border-radius:6px;font-size:12px;color:var(--danger);"></div>
+      <textarea id="import-code" class="code-area" spellcheck="false" placeholder="Paste flow_graph JSON or drop a .json file here...&#10;&#10;{&#10;  &quot;1&quot;: {&#10;    &quot;speaker&quot;: &quot;K&quot;,&#10;    &quot;text&quot;: &quot;Hello...&quot;&#10;  }&#10;}"></textarea>
+      <div id="import-error" class="dialog-msg error" style="display:none;"></div>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+    <div class="dialog-footer">
       <button class="tb-btn" data-action="closeImport">Cancel</button>
       <button class="tb-btn success" data-action="runImport">Import &amp; Load</button>
     </div>
@@ -168,108 +162,91 @@
 </div>
 
 <!-- CHARACTERS MODAL -->
-<div id="characters-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:720px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14px;">
+<div id="characters-overlay" class="overlay">
+  <div class="dialog">
+    <div class="dialog-header">
       <span>Characters</span>
-      <button data-action="closeCharacters" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:2px 6px;border-radius:4px;">✕</button>
+      <button class="dialog-close" data-action="closeCharacters" title="Close (Esc)">✕</button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:16px 20px;">
-      <p style="font-size:12px;color:var(--text-dim);line-height:1.5;margin-bottom:12px;">
+    <div class="dialog-body">
+      <p class="dialog-note">
         Define your cast once. The Speaker field suggests these names, the Emotion menu shows each character's emotions, and diagnostics flag speakers that aren't listed (typos).
         Renaming a character updates every line, stage cue, and expression that uses it. Presets are saved with your project, not in the exported JSON.
       </p>
       <div id="characters-list"></div>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;">
-      <div style="display:flex;gap:8px;">
-        <button class="tb-btn" data-action="addCharacter">+ Add Character</button>
-        <button class="tb-btn" data-action="detectCharacters" title="Create presets from speakers already used in the story">Detect from Story</button>
-      </div>
+    <div class="dialog-footer">
+      <button class="tb-btn" data-action="addCharacter">+ Add Character</button>
+      <button class="tb-btn" data-action="detectCharacters" title="Create presets from speakers already used in the story">Detect from Story</button>
+      <div style="flex:1"></div>
       <button class="tb-btn" data-action="closeCharacters">Close</button>
     </div>
   </div>
 </div>
 
 <!-- SHARE MODAL -->
-<div id="share-overlay" style="display:none;position:fixed;inset:0;background:rgba(0, 0, 0, 0.8);z-index:2000;align-items:center;justify-content:center;">
-  <div id="share-modal" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:480px;max-width:95vw;overflow:hidden;">
-    <div style="padding:20px 24px 14px;border-bottom:1px solid var(--border);">
-      <div style="font-size:18px;font-weight:700;color:var(--accent);margin-bottom:4px;">Share Flow</div>
-      <div style="font-size:11px;color:var(--text-dim);line-height:1.5;">Export your entire flow as a shareable URL or compact code.<br>Anyone with the link can open it instantly - no account needed.</div>
+<div id="share-overlay" class="overlay">
+  <div class="dialog narrow">
+    <div class="dialog-header">
+      <span>Share Flow</span>
+      <button class="dialog-close" data-action="closeShareModal" title="Close (Esc)">✕</button>
     </div>
-    <div style="padding:20px 24px;">
+    <div class="dialog-body">
+      <p class="dialog-note">Export your entire flow as a shareable URL or compact code. Anyone with the link can open it instantly - no account needed.</p>
 
-      <!-- Share URL -->
-      <div style="margin-bottom:18px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);margin-bottom:8px;">Share Link</div>
-        <div style="display:flex;gap:8px;">
-          <input id="share-url-input" readonly style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--success);padding:9px 12px;border-radius:7px;font-family:var(--font-mono);font-size:11px;outline:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" placeholder="Generating...">
-          <button class="tb-btn" data-action="copyShareUrl" id="copy-url-btn">Copy</button>
-        </div>
-        <div style="font-size:10px;color:var(--text-dim);margin-top:5px;">Note: the URL encodes the full graph - very large flows may exceed URL limits. Use the code below for big projects.</div>
+      <div class="dialog-label">Share Link</div>
+      <div class="dialog-row">
+        <input id="share-url-input" class="field-input mono" readonly style="flex:1" placeholder="Generating...">
+        <button class="tb-btn" data-action="copyShareUrl" id="copy-url-btn">Copy</button>
       </div>
+      <p class="dialog-note">The URL encodes the full graph - very large flows may exceed URL limits. Use the code below for big projects.</p>
 
-      <!-- Compact code -->
-      <div style="margin-bottom:18px;">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);margin-bottom:8px;">Compact Share Code</div>
-        <textarea id="share-code-area" readonly spellcheck="false" style="width:100%;height:80px;background:var(--bg);border:1px solid var(--border);color:var(--accent);padding:10px 12px;border-radius:7px;font-family:var(--font-mono);font-size:10px;line-height:1.5;resize:none;outline:none;"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="tb-btn" data-action="copyShareCode" id="copy-code-btn" style="flex:1;">Copy Code</button>
-        </div>
-      </div>
+      <div class="dialog-label">Compact Share Code</div>
+      <textarea id="share-code-area" class="code-area short" readonly spellcheck="false"></textarea>
+      <button class="tb-btn" data-action="copyShareCode" id="copy-code-btn" style="width:100%">Copy Code</button>
 
-      <!-- Import code -->
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);margin-bottom:8px;">Load a Share Code</div>
-        <textarea id="load-code-area" spellcheck="false" placeholder="Paste a share code here..." style="width:100%;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:7px;font-family:var(--font-mono);font-size:10px;line-height:1.5;resize:none;outline:none;transition:border-color 0.15s;"></textarea>
-        <div id="share-load-error" style="display:none;font-size:11px;color:var(--danger);margin-top:5px;"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button class="tb-btn success" data-action="loadShareCode" style="flex:1;">Load &amp; Replace</button>
-        </div>
-      </div>
-
+      <div class="dialog-label">Load a Share Code</div>
+      <textarea id="load-code-area" class="code-area short" spellcheck="false" placeholder="Paste a share code here..."></textarea>
+      <div id="share-load-error" class="dialog-msg error" style="display:none;"></div>
+      <button class="tb-btn success" data-action="loadShareCode" style="width:100%">Load &amp; Replace</button>
     </div>
-    <div style="padding:12px 24px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+    <div class="dialog-footer">
       <button class="tb-btn" data-action="closeShareModal">Close</button>
     </div>
   </div>
 </div>
 
 <!-- DIAGNOSTICS MODAL -->
-<div id="diag-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:1500;align-items:center;justify-content:center;">
-  <div id="diag-modal" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;width:640px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 36px rgba(0,0,0,0.6);">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:16px;font-weight:700;">Story Diagnostics &amp; Linter</span>
-        <span id="diag-badge-summary" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;background:var(--surface2);">0 Issues</span>
-      </div>
-      <button data-action="closeDiagnostics" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:2px 6px;">✕</button>
+<div id="diag-overlay" class="overlay">
+  <div class="dialog">
+    <div class="dialog-header">
+      <span>Story Check <span id="diag-badge-summary" class="diag-summary">0 Issues</span></span>
+      <button class="dialog-close" data-action="closeDiagnostics" title="Close (Esc)">✕</button>
     </div>
-    <div style="display:flex;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface2);">
+    <div class="dialog-tabs">
       <button class="diag-filter active" id="diag-btn-all" data-action="filterDiag" data-arg="all">All (<span id="diag-all-cnt">0</span>)</button>
       <button class="diag-filter" id="diag-btn-error" data-action="filterDiag" data-arg="error">Errors (<span id="diag-err-cnt">0</span>)</button>
       <button class="diag-filter" id="diag-btn-warning" data-action="filterDiag" data-arg="warning">Warnings (<span id="diag-warn-cnt">0</span>)</button>
       <button class="diag-filter" id="diag-btn-info" data-action="filterDiag" data-arg="info">Info (<span id="diag-info-cnt">0</span>)</button>
     </div>
-    <div id="diag-list" style="flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:8px;">
+    <div id="diag-list" class="dialog-body">
       <!-- Populated dynamically -->
     </div>
-    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:11px;color:var(--text-dim);">Click any issue to jump to and highlight that node.</span>
+    <div class="dialog-footer">
+      <span class="dialog-note" style="flex:1">Click any issue to jump to and highlight that node.</span>
       <button class="tb-btn" data-action="closeDiagnostics">Close</button>
     </div>
   </div>
 </div>
 
 <!-- PLAYTEST OVERLAY -->
-<div id="playtest-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2500;align-items:center;justify-content:center;">
+<div id="playtest-overlay" class="overlay">
   <div id="playtest-container">
     
     <!-- TOP BAR HUD -->
     <div id="playtest-header">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-weight:700;font-size:14px;color:var(--accent);">STORY PREVIEW</span>
+        <span style="font-weight:700;font-size:13px;color:var(--accent);">STORY PREVIEW</span>
         <span id="pt-node-badge" class="pt-badge pt-debug-only">Node 1</span>
       </div>
       <div id="pt-stats" class="pt-debug-only">
