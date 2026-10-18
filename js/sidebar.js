@@ -17,6 +17,20 @@ const optionsKeeping = (values, current) =>
   [...values, ...(current && !values.includes(current) ? [current] : [])].map(v => option(v, current)).join('');
 
 // Fields only some modes read (see MODES in graph.js).
+// Translated text for th.json. Real text / cut only show when the English has them.
+function translationFieldsHTML(n) {
+  const tr = n.tr || {};
+  const box = (id, label, val, rows) => `
+    <div class="field-group">
+      <div class="field-label">${label}</div>
+      ${rows ? `<textarea class="field-input" id="${id}" rows="${rows}" placeholder="(empty = plays in English)">${escapeHTML(val || '')}</textarea>`
+             : `<input class="field-input" id="${id}" value="${escapeHTML(val || '')}" placeholder="(empty = plays in English)">`}
+    </div>`;
+  return box('f-tr-text', 'Translation (th.json)', tr.text, 2)
+    + (n.realText ? box('f-tr-real', 'Translated Real Text', tr.realText, 2) : '')
+    + (n.cut ? box('f-tr-cut-after', 'Translated Cut after (start of the translated line)', tr.cutAfter) + box('f-tr-cut', 'Translated Cut to', tr.cut) : '');
+}
+
 function modeFieldsHTML(n) {
   const mode = getMode(state.mode);
   let html = '';
@@ -116,10 +130,19 @@ export function renderSidebar() {
       <textarea class="field-input" id="f-text" rows="3" placeholder="What the character says...">${escapeHTML(n.text)}</textarea>
       <div class="field-hint">{shown text|FlagName} makes a detail the player can click to notice.</div>
     </div>
+    ${translationFieldsHTML(n)}
     <div class="field-group">
       <div class="field-label">Call (shows the choices on a ringing phone)</div>
       <input class="field-input" id="f-call" value="${escapeHTML(n.call || '')}" placeholder="Mom (empty = not a call)">
     </div>
+    <div class="field-group">
+      <div class="field-label">Minigame (scene played after the line; its results replace choices)</div>
+      <input class="field-input" id="f-minigame" value="${escapeHTML(n.minigame || '')}" placeholder="res://Scenes/Minigames/get_up.tscn">
+    </div>
+    ${n.minigame ? `<div class="field-group">
+      <div class="field-label">Minigame Settings (JSON)</div>
+      <input class="field-input" id="f-settings" value="${escapeHTML(n.settings || '')}" placeholder='{"seconds": 12, "clock": "6:30"}'>
+    </div>` : ''}
 
     <div class="field-section">Visuals</div>
     <div class="field-group">
@@ -176,30 +199,34 @@ export function renderSidebar() {
       <input class="field-input" id="f-secret-next" value="${escapeHTML(n.secret.next)}" placeholder="secret_1">
     </div>
 
-    <div class="field-section">Choices</div>
+    <div class="field-section">${n.minigame ? 'Minigame Results' : 'Choices'}</div>
     <div class="choices-editor" id="choices-editor">
-      ${n.choices.map((c,i) => buildChoiceHTML(i, c)).join('')}
+      ${n.choices.map((c,i) => buildChoiceHTML(i, c, Boolean(n.minigame))).join('')}
     </div>
-    <button class="add-choice-btn" data-action="addChoice">+ Add Choice</button>
+    <button class="add-choice-btn" data-action="addChoice">+ Add ${n.minigame ? 'Result' : 'Choice'}</button>
 
     <button class="delete-node-btn" data-action="deleteSelectedNodes">Delete Node</button>
   `;
 }
 
-function buildChoiceHTML(i, c) {
+function buildChoiceHTML(i, c, isResult) {
   const mode = getMode(state.mode);
   const meterInputs = meterNames(state.mode).map(m => `
         <input class="field-input" style="width:64px" type="number" title="${escapeHTML(mode.meters[m].label)} change" placeholder="${escapeHTML(m)}" value="${escapeHTML(c[meterKey(m)] || 0)}" data-choice-key="${meterKey(m)}">`).join('');
   return `
     <div class="choice-item" id="choice-item-${i}" data-index="${i}">
       <div class="choice-row">
-        <input class="field-input" style="flex:1" placeholder="Button text" value="${escapeHTML(c.text)}" data-choice-key="text">
+        <input class="field-input" style="flex:1" placeholder="${isResult ? 'Log text' : 'Button text'}" value="${escapeHTML(c.text)}" data-choice-key="text">
         <button class="choice-remove" data-action="removeChoice">×</button>
       </div>
       <div class="choice-row">
-        <select class="field-input" style="flex:1" data-choice-key="type">
+        <input class="field-input" style="flex:1" placeholder="translation (th.json)" value="${escapeHTML(c.tr || '')}" data-choice-key="tr">
+      </div>
+      <div class="choice-row">${isResult
+        ? `<input class="field-input" style="flex:1" placeholder="result name (won, gave_up...)" value="${escapeHTML(c.result || '')}" data-choice-key="result">`
+        : `<select class="field-input" style="flex:1" data-choice-key="type">
           ${optionsKeeping(mode.choiceTypes, c.type)}
-        </select>
+        </select>`}
       </div>
       <div class="choice-row choice-meters">
         ${meterNames(state.mode).map(m => `<span class="choice-meter-label">${escapeHTML(mode.meters[m].label)}</span>`).join('')}
@@ -209,7 +236,7 @@ function buildChoiceHTML(i, c) {
       </div>
       <div class="choice-row">
         <input class="field-input" style="flex:1" placeholder="set_flag (optional)" value="${escapeHTML(c.set_flag)}" data-choice-key="set_flag">
-        <input class="field-input" style="flex:1;margin-left:4px" placeholder="requires flag" title="Only show this choice if this flag is set (e.g. a noticed detail)" value="${escapeHTML(c.requires || '')}" data-choice-key="requires">
+        ${isResult ? '' : `<input class="field-input" style="flex:1;margin-left:4px" placeholder="requires flag" title="Only show this choice if this flag is set (e.g. a noticed detail)" value="${escapeHTML(c.requires || '')}" data-choice-key="requires">`}
       </div>
     </div>
   `;
@@ -231,6 +258,12 @@ const FIELDS = {
   'f-cut':         (n, v) => { n.cut = v; },
   'f-cut-after':   (n, v) => { n.cutAfter = v; },
   'f-call':        (n, v) => { n.call = v; },
+  'f-minigame':    (n, v) => { n.minigame = v; },
+  'f-tr-text':     (n, v) => { (n.tr ||= {}).text = v; },
+  'f-tr-real':     (n, v) => { (n.tr ||= {}).realText = v; },
+  'f-tr-cut-after':(n, v) => { (n.tr ||= {}).cutAfter = v; },
+  'f-tr-cut':      (n, v) => { (n.tr ||= {}).cut = v; },
+  'f-settings':    (n, v) => { n.settings = v; },
   'f-secret-cond': (n, v) => { n.secret.condition = v; },
   'f-secret-val':  (n, v) => { n.secret.value = v; },
   'f-secret-flag': (n, v) => { n.secret.flag = v; },
@@ -263,6 +296,9 @@ export function setupSidebarEvents() {
       markDirty();
       return;
     }
+
+    // adding or clearing a minigame switches the choices editor to results and back
+    if (el.id === 'f-minigame' && e.type === 'change') { renderSidebar(); return; }
 
     if (e.type === 'input' && FIELDS[el.id]) {
       FIELDS[el.id](n, el.value);

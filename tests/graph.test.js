@@ -5,7 +5,8 @@ import {
   computeLayout, buildExportData, extractDictBody, gdscriptDictToJSON, parseFlowGraph,
   encodeShareCode, decodeShareCode, evaluateSecretCondition, nodeMatchesQuery,
   analyzeGraph, exampleGraph, safeColor, findCharacter, emotionsFor, DEFAULT_EMOTIONS,
-  normalizeCharacters, detectCharacters, renameCharacterRefs, speakerLineCounts
+  normalizeCharacters, detectCharacters, renameCharacterRefs, speakerLineCounts, formatFlowGraph,
+  buildTranslationData, applyTranslation, formatTranslation
 } from '../js/graph.js';
 
 // Build a graph from compact node specs: { id: { ...overrides } }
@@ -280,4 +281,69 @@ test('example story is consistent with its character presets', () => {
   const issues = analyzeGraph({ nodes: ex.nodes, connections: buildConnections(ex.nodes), characters: ex.characters });
   assert.equal(issues.filter(i => i.type !== 'info').length, 0);
   assert.equal(issues.filter(i => i.title.includes('Emotion')).length, 0);
+});
+
+test('minigame results import as linked choices and export back unchanged', () => {
+  const story = {
+    absent_1: {
+      speaker: '', text: '*Beep.*',
+      minigame: 'res://Scenes/Minigames/get_up.tscn',
+      settings: { max_progress: 0.8, seconds: 12 },
+      results: {
+        won: { text: 'Tried to get up', weight_change: 5, next: 'absent_2', set_flag: 'TriedToGetUp' },
+        gave_up: { text: 'Stayed in bed', next: 'absent_2' }
+      }
+    },
+    absent_2: { speaker: '', text: 'Done.' }
+  };
+  const { nodes } = parseFlowGraph(JSON.stringify(story));
+  const n = nodes.absent_1;
+  assert.equal(n.minigame, 'res://Scenes/Minigames/get_up.tscn');
+  assert.deepEqual(n.choices.map(c => c.result), ['won', 'gave_up']);
+  assert.deepEqual(n.extra, {});
+  const connections = buildConnections(nodes);
+  assert.equal(connections.filter(c => c.from === 'absent_1').length, 2);
+  assert.deepEqual(buildExportData({ nodes, connections }), story);
+  assert.deepEqual(JSON.parse(formatFlowGraph(story)), story);
+});
+
+test('analyzeGraph flags bad minigame settings and unnamed results', () => {
+  const g = graphOf({
+    1: { minigame: 'res://x.tscn', settings: '{nope', choices: [{ text: 'a', type: '', next: '', result: '' }] }
+  });
+  const t = titles(analyzeGraph(g));
+  assert.ok(t.includes('error:1:Bad Minigame Settings'));
+  assert.ok(t.includes('error:1:Unnamed Minigame Result'));
+});
+
+test('translations round-trip the game\'s th.json files', async () => {
+  const fs = await import('node:fs');
+  for (const who of ['Kay', 'Elysia', 'Ulyn']) {
+    const dir = new URL(`../../Story/${who}/`, import.meta.url);
+    if (!fs.existsSync(dir)) continue; // only inside the game repo
+    const { nodes } = parseFlowGraph(fs.readFileSync(new URL('flow_graph.json', dir), 'utf8'));
+    const th = fs.readFileSync(new URL('th.json', dir), 'utf8');
+    assert.deepEqual(applyTranslation(nodes, JSON.parse(th)), []);
+    assert.equal(formatTranslation(buildTranslationData({ nodes })).trimEnd(), th.trimEnd(), who);
+  }
+});
+
+test('applyTranslation reports unknown nodes and results; untranslated choices fall back to English', () => {
+  const g = graphOf({
+    1: { text: 'Hi', choices: [{ text: 'A', type: 'neutral', next: '' }, { text: 'B', type: 'neutral', next: '' }] },
+    2: { text: 'Go', minigame: 'x.tscn', choices: [{ text: 'Won', result: 'won', next: '' }] }
+  });
+  assert.deepEqual(applyTranslation(g.nodes, { 1: { text: 'สวัสดี', choices: ['ก'] }, 2: { results: { won: 'ชนะ', lost: 'แพ้' } }, 9: { text: 'x' } }),
+    ['1: 1 choices, the story has 2', '2: no result "lost"', '9: no such node']);
+  assert.deepEqual(buildTranslationData(g), { 1: { text: 'สวัสดี', choices: ['ก', 'B'] }, 2: { results: { won: 'ชนะ' } } });
+});
+
+test('analyzeGraph checks translated links and cut_after', () => {
+  const g = graphOf({
+    1: { text: 'a {b|F} c', tr: { text: 'ก ข ค' } },
+    2: { text: 'one two', cut: 'x', cutAfter: 'one', tr: { text: 'หนึ่ง สอง', cutAfter: 'สาม' } }
+  });
+  const t = titles(analyzeGraph(g));
+  assert.ok(t.includes('warning:1:Translation Links Differ'));
+  assert.ok(t.includes('warning:2:Translated cut_after Not At Start'));
 });

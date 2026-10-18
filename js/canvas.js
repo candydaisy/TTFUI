@@ -588,7 +588,7 @@ function buildNodeHTML(id) {
 
   // ---- choices badge ----
   const choicesBadge = (n.choices && n.choices.length)
-    ? `<span class="tag tag-choices">${n.choices.length} choice${n.choices.length > 1 ? 's' : ''}</span>`
+    ? `<span class="tag tag-choices">${n.choices.length} ${n.minigame ? 'result' : 'choice'}${n.choices.length > 1 ? 's' : ''}</span>`
     : '';
 
   const portY = 20;
@@ -604,7 +604,7 @@ function buildNodeHTML(id) {
       const py = 52 + i * 22;
       choiceRowsHTML += `<div class="node-choice-row" style="display:flex;align-items:center;gap:4px;margin-top:4px;padding-right:14px;">
         <span style="font-size:9px;color:var(--accent);font-weight:700;min-width:12px;">${i+1}</span>
-        <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.text || '...')}</span>
+        <span style="font-size:10px;color:var(--text-dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.minigame ? escapeHTML(c.result || '?') + ': ' : ''}${escapeHTML(c.text || '...')}</span>
         ${meterNames(state.mode).map(m => {
           const v = Number(c[meterKey(m)]) || 0;
           return v ? `<span class="node-choice-delta ${changeTone(state.mode, m, v)}" title="${escapeHTML(m)}">${escapeHTML(m[0])}${v > 0 ? '+' : ''}${v}</span>` : '';
@@ -621,6 +621,8 @@ function buildNodeHTML(id) {
   const notices = noticesIn(n.text);
   const extraBadges = [
     n.call && `call: ${n.call}`,
+    n.minigame && `minigame: ${n.minigame.split('/').pop()}`,
+    n.tr && n.tr.text && 'translated',
     n.quiet && 'quiet',
     n.cut && 'cut-off',
     notices.length && `notice: ${notices.map(d => d.flag).join(', ')}`,

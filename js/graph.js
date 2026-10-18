@@ -11,10 +11,12 @@ export function createNode(id, x, y) {
     speaker: '', emotion: '', text: 'New line.',
     realText: '', timed: false,
     cut: '', cutAfter: '', quiet: false, call: '',
+    minigame: '', settings: '', // settings is JSON text, results are the choices (each with a `result` name)
     background: '', sfx: '', amb: '', voice: '',
     showChars: '', hideChars: '', expression: '',
     secret: { condition: '', value: '', flag: '', next: '' },
     choices: [],
+    tr: {}, // translated text, saved to the story's <locale>.json: { text, realText, cut, cutAfter }; choices keep theirs in choice.tr
     extra: {} // keys this editor doesn't know, kept so exporting never loses them
   };
 }
@@ -102,7 +104,7 @@ export function conditionsFor(modeName) {
 export function detectMode(parsed) {
   const used = new Set();
   Object.values(parsed || {}).forEach(entry => {
-    (entry.choices || []).forEach(c => Object.keys(c).forEach(k => {
+    [...(entry.choices || []), ...Object.values(entry.results || {})].forEach(c => Object.keys(c).forEach(k => {
       if (k.endsWith('_change')) used.add(k.slice(0, -7));
     }));
   });
@@ -439,8 +441,20 @@ export function buildExportData(graph) {
     if (n.amb) item.amb = n.amb;
     if (n.voice) item.voice = n.voice;
 
-    // choices
-    if (n.choices && n.choices.length) {
+    if (n.minigame) {
+      item.minigame = n.minigame;
+      if (n.settings && n.settings.trim()) {
+        try { item.settings = JSON.parse(n.settings); } catch { item.settings = n.settings; } // keep bad text; diagnostics flag it
+      }
+      item.results = {};
+      n.choices.forEach((c, ci) => {
+        const res = { text: c.text };
+        meterNames(modeName).forEach(m => { if (Number(c[meterKey(m)])) res[meterKey(m)] = Number(c[meterKey(m)]); });
+        res.next = target(id, `choice-${ci}`);
+        if (c.set_flag) res.set_flag = c.set_flag;
+        item.results[c.result || ''] = Object.assign(res, c.extra || {});
+      });
+    } else if (n.choices && n.choices.length) {
       item.choices = n.choices.map((c, ci) => {
         const choiceObj = { text: c.text, type: c.type || 'neutral' };
         meterNames(modeName).forEach(m => { choiceObj[meterKey(m)] = Number(c[meterKey(m)]) || 0; });
@@ -486,11 +500,66 @@ export function formatFlowGraph(data) {
       if (k === 'choices' && Array.isArray(v)) {
         return `\t\t"choices": [\n${v.map(c => '\t\t\t' + inlineJSON(c)).join(',\n')}\n\t\t]`;
       }
+      if (k === 'results' && v && typeof v === 'object') {
+        return `\t\t"results": {\n${Object.entries(v).map(([r, x]) => `\t\t\t${JSON.stringify(r)}: ${inlineJSON(x)}`).join(',\n')}\n\t\t}`;
+      }
       return `\t\t${JSON.stringify(k)}: ${inlineJSON(v)}`;
     });
     return `\t${JSON.stringify(id)}: {\n${lines.join(',\n')}\n\t}`;
   });
   return '{\n' + nodes.join(',\n\n') + '\n}\n';
+}
+
+// ================================
+// TRANSLATION (Story/<Name>/th.json)
+// ================================
+// Only text, matched by node id: choices by index, minigame results by name.
+const TR_KEYS = [['text', 'text'], ['real_text', 'realText'], ['cut_after', 'cutAfter'], ['cut', 'cut']];
+
+export function buildTranslationData(graph) {
+  const data = {};
+  Object.entries(graph.nodes).forEach(([id, n]) => {
+    const tr = n.tr || {};
+    const entry = {};
+    TR_KEYS.forEach(([key, field]) => { if (tr[field]) entry[key] = tr[field]; });
+    const choices = n.choices || [];
+    if (n.minigame) {
+      const results = {};
+      choices.forEach(c => { if (c.tr) results[c.result || ''] = c.tr; });
+      if (Object.keys(results).length) entry.results = results;
+    } else if (choices.some(c => c.tr)) {
+      entry.choices = choices.map(c => c.tr || c.text); // the game matches by index, so untranslated ones stay English
+    }
+    if (Object.keys(entry).length) data[id] = entry;
+  });
+  return data;
+}
+
+// Same layout as the game's th.json files.
+export function formatTranslation(data) {
+  return JSON.stringify(data, null, '\t') + '\n';
+}
+
+// Put a parsed th.json onto the nodes (replacing any translation they had).
+// Returns the problems found, e.g. ids the story doesn't have.
+export function applyTranslation(nodes, data) {
+  const problems = [];
+  Object.values(nodes).forEach(n => { n.tr = {}; (n.choices || []).forEach(c => { delete c.tr; }); });
+  Object.entries(data || {}).forEach(([id, entry]) => {
+    const n = nodes[id];
+    if (!n) { problems.push(`${id}: no such node`); return; }
+    TR_KEYS.forEach(([key, field]) => { if (typeof entry[key] === 'string') n.tr[field] = entry[key]; });
+    const choices = n.choices || [];
+    if (Array.isArray(entry.choices)) {
+      if (entry.choices.length !== choices.length) problems.push(`${id}: ${entry.choices.length} choices, the story has ${choices.length}`);
+      choices.forEach((c, i) => { if (typeof entry.choices[i] === 'string') c.tr = entry.choices[i]; });
+    }
+    Object.entries(entry.results || {}).forEach(([name, text]) => {
+      const c = choices.find(x => x.result === name);
+      if (c) c.tr = String(text); else problems.push(`${id}: no result "${name}"`);
+    });
+  });
+  return problems;
 }
 
 // ================================
@@ -522,8 +591,9 @@ export function gdscriptDictToJSON(str) {
 }
 
 const KNOWN_NODE_KEYS = new Set(['speaker', 'emotion', 'text', 'real_text', 'cut_after', 'cut', 'timed', 'quiet', 'call',
-  'next', 'background', 'show_characters', 'hide_characters', 'expression', 'sfx', 'amb', 'voice', 'choices', 'secret']);
-const KNOWN_CHOICE_KEYS = new Set(['text', 'type', 'next', 'set_flag', 'requires']);
+  'next', 'background', 'show_characters', 'hide_characters', 'expression', 'sfx', 'amb', 'voice', 'choices', 'secret',
+  'minigame', 'settings', 'results']);
+const KNOWN_CHOICE_KEYS = new Set(['text', 'type', 'next', 'set_flag', 'requires', 'result']);
 
 function extraKeys(obj, known, isKnown = () => false) {
   const extra = {};
@@ -556,6 +626,8 @@ export function parseFlowGraph(dictText) {
       cutAfter: entry.cut_after || '',
       quiet: Boolean(entry.quiet),
       call: entry.call || '',
+      minigame: entry.minigame || '',
+      settings: entry.settings !== undefined ? JSON.stringify(entry.settings) : '',
       background: entry.background || '',
       sfx: entry.sfx || '',
       amb: entry.amb || '',
@@ -571,15 +643,19 @@ export function parseFlowGraph(dictText) {
         flag: entry.secret?.flag || '',
         next: entry.secret?.next || ''
       },
-      choices: (entry.choices || []).map(c => {
+      choices: (entry.minigame
+        ? Object.entries(entry.results || {}).map(([result, r]) => ({ ...r, result }))
+        : entry.choices || []
+      ).map(c => {
         const choice = {
           text: c.text || '',
-          type: c.type || 'neutral',
+          type: entry.minigame ? '' : c.type || 'neutral',
           next: c.next || '',
           set_flag: c.set_flag || '',
           requires: c.requires || '',
           extra: extraKeys(c, KNOWN_CHOICE_KEYS, isMeterKey)
         };
+        if (entry.minigame) choice.result = c.result;
         Object.keys(c).filter(isMeterKey).forEach(k => { choice[k] = Number(c[k]) || 0; });
         return choice;
       }),
@@ -633,6 +709,8 @@ export function nodeMatchesQuery(n, query) {
   if (n.voice && n.voice.toLowerCase().includes(query)) return true;
   if (n.cut && n.cut.toLowerCase().includes(query)) return true;
   if (n.call && n.call.toLowerCase().includes(query)) return true;
+  if (n.minigame && n.minigame.toLowerCase().includes(query)) return true;
+  if (n.tr && n.tr.text && n.tr.text.toLowerCase().includes(query)) return true;
   if (n.emotion && n.emotion.toLowerCase().includes(query)) return true;
   if (n.background && n.background.toLowerCase().includes(query)) return true;
   if (n.sfx && n.sfx.toLowerCase().includes(query)) return true;
@@ -646,6 +724,8 @@ export function nodeMatchesQuery(n, query) {
     (c.text && c.text.toLowerCase().includes(query)) ||
     (c.set_flag && c.set_flag.toLowerCase().includes(query)) ||
     (c.requires && c.requires.toLowerCase().includes(query)) ||
+    (c.result && c.result.toLowerCase().includes(query)) ||
+    (c.tr && c.tr.toLowerCase().includes(query)) ||
     (c.next && c.next.toLowerCase().includes(query)) ||
     (c.type && c.type.toLowerCase().includes(query))
   ));
@@ -705,6 +785,37 @@ export function analyzeGraph(graph) {
         });
       }
     });
+  });
+
+  // Minigames: settings must be JSON, every result needs the name the minigame ends with
+  ids.forEach(id => {
+    const n = nodes[id];
+    if (!n.minigame) return;
+    if (n.settings && n.settings.trim()) {
+      try { JSON.parse(n.settings); } catch {
+        issues.push({ type: 'error', nodeId: id, title: 'Bad Minigame Settings', desc: `Settings of Node ${id} aren't valid JSON, e.g. {"seconds": 12}.` });
+      }
+    }
+    (n.choices || []).forEach((c, i) => {
+      if (!(c.result || '').trim()) {
+        issues.push({ type: 'error', nodeId: id, title: 'Unnamed Minigame Result', desc: `Result ${i + 1} of Node ${id} has no result name (e.g. won, gave_up).` });
+      }
+    });
+  });
+
+  // Translation: same {detail|Flag} links as the English, and cut_after at the start of its line (like the game's check)
+  const linkFlags = t => noticesIn(t).map(d => d.flag).sort().join(',');
+  ids.forEach(id => {
+    const n = nodes[id];
+    const tr = n.tr || {};
+    [['text', 'text'], ['realText', 'real_text']].forEach(([field, key]) => {
+      if (tr[field] && linkFlags(tr[field]) !== linkFlags(n[field])) {
+        issues.push({ type: 'warning', nodeId: id, title: 'Translation Links Differ', desc: `Translated ${key} of Node ${id} links [${linkFlags(tr[field])}], the English links [${linkFlags(n[field])}].` });
+      }
+    });
+    if (tr.cutAfter && !(tr.text || n.text || '').startsWith(tr.cutAfter)) {
+      issues.push({ type: 'warning', nodeId: id, title: 'Translated cut_after Not At Start', desc: `Translated cut_after of Node ${id} must be exactly the start of the translated text.` });
+    }
   });
 
   // 2. Unset flags

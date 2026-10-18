@@ -5,7 +5,8 @@ import { state } from './state.js';
 import { showToast } from './utils.js';
 import {
   buildExportData, formatFlowGraph, extractDictBody, parseFlowGraph, buildConnections,
-  encodeShareCode, decodeShareCode, normalizeCharacters, detectCharacters, MODES, DEFAULT_MODE
+  encodeShareCode, decodeShareCode, normalizeCharacters, detectCharacters, MODES, DEFAULT_MODE,
+  buildTranslationData, formatTranslation, applyTranslation
 } from './graph.js';
 import { pushHistory, clearHistory } from './history.js';
 import {
@@ -30,6 +31,11 @@ export function setupIOEvents() {
   document.getElementById('import-file-input').addEventListener('change', e => {
     const file = e.target.files && e.target.files[0];
     if (file) loadJSONFile(file);
+  });
+
+  document.getElementById('export-kind').addEventListener('change', e => {
+    document.getElementById('export-filename').value = e.target.value === 'translation' ? 'th.json' : 'flow_graph.json';
+    exportCode();
   });
 
   const area = document.getElementById('import-code');
@@ -59,7 +65,9 @@ function flashButton(btn, text, restoreTo = btn.textContent) {
 // EXPORT (JSON)
 // ================================
 export function exportCode() {
-  document.getElementById('output-code').value = formatFlowGraph(buildExportData(state));
+  document.getElementById('output-code').value = document.getElementById('export-kind').value === 'translation'
+    ? formatTranslation(buildTranslationData(state))
+    : formatFlowGraph(buildExportData(state));
   const hintEl = document.getElementById('export-browser-hint');
   if (hintEl) {
     hintEl.style.display = (!window.showSaveFilePicker) ? 'block' : 'none';
@@ -238,6 +246,8 @@ export function runImport() {
   const body = extractDictBody(raw);
   if (body === null) { showImportError('Could not find a { } block.'); return; }
 
+  if (document.getElementById('import-kind').value === 'translation') { importTranslation(body); return; }
+
   let parsed;
   try {
     parsed = parseFlowGraph(body);
@@ -263,6 +273,30 @@ export function runImport() {
   updateEmptyHint();
   closeImport();
   markDirty();
+}
+
+// A translation goes onto the nodes already loaded, so import the story first.
+function importTranslation(body) {
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (e) {
+    showImportError('Parse error: ' + e.message + '.');
+    return;
+  }
+  if (!Object.keys(state.nodes).length) { showImportError('Import the story first, then its translation.'); return; }
+  pushHistory();
+  const problems = applyTranslation(state.nodes, data);
+  rebuildNodeElements();
+  renderSidebar();
+  markDirty();
+  if (problems.length) {
+    showImportError(`Imported, with ${problems.length} problem(s):\n` + problems.join('\n'));
+    document.getElementById('import-error').style.whiteSpace = 'pre-line';
+    return;
+  }
+  closeImport();
+  showToast(`Imported translation for ${Object.keys(data).length} nodes`);
 }
 
 function showImportError(msg) {

@@ -69,9 +69,11 @@ function renderLine(text) {
 // "requires" flag isn't set are hidden, like in the game.
 function renderChoices(n) {
   const container = document.getElementById('pt-choices-container');
-  const header = n.call ? `<div class="pt-call">incoming call · <strong>${escapeHTML(n.call)}</strong></div>` : '';
+  const header = n.minigame
+    ? `<div class="pt-call">minigame · <strong>${escapeHTML(n.minigame.split('/').pop())}</strong> · pick how it ends</div>`
+    : n.call ? `<div class="pt-call">incoming call · <strong>${escapeHTML(n.call)}</strong></div>` : '';
   container.innerHTML = header + visibleChoices(n.choices, playtestState.flags).map(({ c, i: idx }) => {
-    const locked = isChoiceLocked(state.mode, c, playtestState.meters);
+    const locked = !n.minigame && isChoiceLocked(state.mode, c, playtestState.meters);
     let metaHtml = locked ? `<span class="pt-badge-locked">locked</span>` : '';
     meterNames(state.mode).forEach(m => {
       const v = Number(c[meterKey(m)]) || 0;
@@ -79,7 +81,8 @@ function renderChoices(n) {
     });
     if (c.set_flag) metaHtml += `<span class="pt-badge-flag">+flag: ${escapeHTML(c.set_flag)}</span>`;
     if (c.requires) metaHtml += `<span class="pt-badge-flag">needs: ${escapeHTML(c.requires)}</span>`;
-    if (c.type) metaHtml += `<span style="opacity:0.6;font-size:10px;">[${escapeHTML(c.type)}]</span>`;
+    if (c.result) metaHtml += `<span class="pt-badge-flag">result: ${escapeHTML(c.result)}</span>`;
+    if (c.type && !n.minigame) metaHtml += `<span style="opacity:0.6;font-size:10px;">[${escapeHTML(c.type)}]</span>`;
     return `
       <button class="pt-choice-btn" data-choice-index="${idx}" ${locked ? 'disabled' : ''}>
         <span>${escapeHTML(c.text || '(Choice ' + (idx + 1) + ')')}</span>
@@ -236,7 +239,7 @@ function renderPlaytestStep() {
 // Timed choices and ringing calls count down like in the game; running out
 // picks the mode's timeout choice ("perform" for Elysia, "neutral" for Ulyn).
 function startTimer(n) {
-  const seconds = choiceTime(state.mode, n, playtestState.meters);
+  const seconds = n.minigame ? 0 : choiceTime(state.mode, n, playtestState.meters); // a minigame keeps its own time
   const bar = document.getElementById('pt-timer');
   bar.style.display = seconds ? 'block' : 'none';
   if (!seconds) return;
@@ -263,7 +266,7 @@ function selectPlaytestChoice(idx) {
   if (!n || !n.choices || !n.choices[idx]) return;
 
   const choice = n.choices[idx];
-  if (isChoiceLocked(state.mode, choice, playtestState.meters)) return;
+  if (!n.minigame && isChoiceLocked(state.mode, choice, playtestState.meters)) return;
   stopTimer();
 
   playtestState.history.push({

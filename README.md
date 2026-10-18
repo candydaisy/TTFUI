@@ -39,8 +39,10 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - **Ulyn (UlynMode):** hidden `busy` and `unsaid` meters, `busy_change` / `unsaid_change` on choices, an `open` choice type (honest about himself, locks above busy 80), **cut-off thoughts** (`cut` / `cut_after`) and **quiet** lines.
   - The sidebar, secret conditions (`mask_below`, `unsaid_above`, ...), node cards, diagnostics and playtest all follow the mode.
 
-- **Calls and Noticing (any mode)**
+- **Calls, Minigames and Noticing (any mode)**
   - **Call:** give a node a caller (`"call": "Mom"`) and its choices show up on a ringing phone. In Ulyn's mode it rings for 6 seconds, then declines.
+  - **Minigame:** give a node a scene path (`"minigame": "res://Scenes/Minigames/get_up.tscn"`) and optional JSON **settings**. Its choices become **results**: each has the result name the minigame ends with (`won`, `gave_up`...), log text, meter changes, a flag and its own output port. Exported as `"results"`, like the game. Playtest lets you pick which result happened.
+  - **Translation:** each node has a **Translation** box (plus translated real text / cut when the English has them), and each choice or result has a translation field. In **Export** and **Import**, pick **Translation (th.json)** to write or load the game's `Story/<Name>/th.json` instead of the story. Import the story first; the translation goes onto its nodes by id, choices by order and results by name. Diagnostics warn when a translated line's `{detail|Flag}` links or `cut_after` don't match, like the game does.
   - **Noticing:** write `{shown text|FlagName}` in a line to make a detail the player can click. A choice with **requires** only shows up once that flag is set. Playtest lets you click details, just like the game.
   - New modes go in `MODES` in `js/graph.js`; keep it in sync with the mode's `INFO` in Godot.
 
