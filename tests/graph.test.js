@@ -6,7 +6,7 @@ import {
   encodeShareCode, decodeShareCode, evaluateSecretCondition, nodeMatchesQuery,
   analyzeGraph, exampleGraph, safeColor, findCharacter, emotionsFor, DEFAULT_EMOTIONS,
   normalizeCharacters, detectCharacters, renameCharacterRefs, speakerLineCounts, formatFlowGraph,
-  buildTranslationData, applyTranslation, formatTranslation
+  buildTranslationData, applyTranslation, formatTranslation, translatedNode
 } from '../js/graph.js';
 
 // Build a graph from compact node specs: { id: { ...overrides } }
@@ -346,4 +346,14 @@ test('analyzeGraph checks translated links and cut_after', () => {
   const t = titles(analyzeGraph(g));
   assert.ok(t.includes('warning:1:Translation Links Differ'));
   assert.ok(t.includes('warning:2:Translated cut_after Not At Start'));
+});
+
+test('translatedNode shows translations and falls back to English', () => {
+  const n = { ...createNode('1', 0, 0), text: 'Hi', cut: 'x', tr: { text: 'สวัสดี' },
+    choices: [{ text: 'A', tr: 'ก' }, { text: 'B' }] };
+  const t = translatedNode(n);
+  assert.equal(t.text, 'สวัสดี');
+  assert.equal(t.cut, 'x');
+  assert.deepEqual(t.choices.map(c => c.text), ['ก', 'B']);
+  assert.equal(n.text, 'Hi'); // the node itself is untouched
 });

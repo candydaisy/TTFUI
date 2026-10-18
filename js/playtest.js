@@ -5,12 +5,30 @@ import { state } from './state.js';
 import { escapeHTML, showToast } from './utils.js';
 import {
   getTarget, evaluateSecretCondition, findCharacter, getMode, meterNames, meterKey, startMeters,
-  startNodeId, isChoiceLocked, lineFor, choiceTime, changeTone, timeoutChoiceIndex, visibleChoices, NOTICE_RE
+  startNodeId, isChoiceLocked, lineFor, choiceTime, changeTone, timeoutChoiceIndex, visibleChoices, NOTICE_RE,
+  translatedNode
 } from './graph.js';
 import { centerOnNode, clearHighlight } from './canvas.js';
 
 let playtestState = newRun(null);
 let timer = null; // { interval, end, total } while a timed choice is counting down
+let lang = 'en'; // 'th' shows each node's translation
+
+// The active node as the player sees it in the current language.
+function shownNode() {
+  const n = state.nodes[playtestState.activeNodeId];
+  return n && lang === 'th' ? translatedNode(n) : n;
+}
+
+// Switches language in place, like the game's Settings: keeps the run and any running timer.
+export function togglePlaytestLang(btn) {
+  lang = lang === 'en' ? 'th' : 'en';
+  btn.textContent = lang === 'en' ? 'EN' : 'ไทย';
+  const n = shownNode();
+  if (!n) return;
+  renderText(n);
+  if (n.choices && n.choices.length) renderChoices(n);
+}
 
 function newRun(startId) {
   return { activeNodeId: startId, meters: startMeters(state.mode), flags: new Set(), history: [] };
@@ -47,7 +65,7 @@ export function setupPlaytestEvents() {
     el.classList.add('noticed');
     showToast(`Noticed (${el.dataset.flag})`);
     document.getElementById('pt-flags-val').textContent = Array.from(playtestState.flags).join(', ');
-    const n = state.nodes[playtestState.activeNodeId];
+    const n = shownNode();
     if (n && n.choices && n.choices.length) renderChoices(n); // a choice may need it
   });
 }
@@ -135,10 +153,22 @@ function goTo(nextTarget) {
   }
 }
 
+// Self-edit: the game types the real line, deletes it, then types the version.
+function renderText(n) {
+  const line = lineFor(state.mode, n, playtestState.meters);
+  const textEl = document.getElementById('pt-dialogue-text');
+  textEl.innerHTML = line.unsaid
+    ? (line.cut
+      ? `<span class="pt-unsaid" title="Cut off">${renderLine(line.unsaid)}</span><br>${renderLine(line.text || '...')}`
+      : `<s class="pt-unsaid" title="Typed, then deleted">${renderLine(line.unsaid)}</s><br>${renderLine(line.text || '...')}`)
+    : renderLine(line.text || '...');
+  if (n.quiet) textEl.insertAdjacentHTML('beforeend', `<div class="pt-quiet">quiet line: slow, can't be skipped in the game</div>`);
+}
+
 function renderPlaytestStep() {
   stopTimer();
   const currId = playtestState.activeNodeId;
-  const n = state.nodes[currId];
+  const n = shownNode();
   if (!n) {
     renderPlaytestEnd();
     return;
@@ -197,15 +227,7 @@ function renderPlaytestStep() {
     emotionTag.style.display = 'none';
   }
 
-  // Self-edit: the game types the real line, deletes it, then types the version.
-  const line = lineFor(state.mode, n, playtestState.meters);
-  const textEl = document.getElementById('pt-dialogue-text');
-  textEl.innerHTML = line.unsaid
-    ? (line.cut
-      ? `<span class="pt-unsaid" title="Cut off">${renderLine(line.unsaid)}</span><br>${renderLine(line.text || '...')}`
-      : `<s class="pt-unsaid" title="Typed, then deleted">${renderLine(line.unsaid)}</s><br>${renderLine(line.text || '...')}`)
-    : renderLine(line.text || '...');
-  if (n.quiet) textEl.insertAdjacentHTML('beforeend', `<div class="pt-quiet">quiet line: slow, can't be skipped in the game</div>`);
+  renderText(n);
 
   // Actions: Choices vs Continue
   const choicesContainer = document.getElementById('pt-choices-container');

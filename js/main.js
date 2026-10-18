@@ -22,7 +22,7 @@ import {
   setupDiagnosticsEvents, runDiagnostics, toggleDiagnostics, closeDiagnostics, filterDiag, isDiagnosticsOpen
 } from './diagnostics.js';
 import {
-  setupPlaytestEvents, isPlaytestOpen, openPlaytest, closePlaytest, restartPlaytest, playtestNext
+  setupPlaytestEvents, isPlaytestOpen, openPlaytest, closePlaytest, restartPlaytest, playtestNext, togglePlaytestLang
 } from './playtest.js';
 import {
   setupIOEvents, setupModeSelect, exportCode, closeModal, saveCodeToFile, copyCode, loadFromStorage,
@@ -108,6 +108,7 @@ const ACTIONS = {
 
   // playtest
   restartPlaytest: () => restartPlaytest(),
+  togglePlaytestLang: el => togglePlaytestLang(el),
   closePlaytest: () => closePlaytest(),
   playtestNext: () => playtestNext(),
 };

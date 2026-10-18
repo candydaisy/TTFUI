@@ -535,6 +535,16 @@ export function buildTranslationData(graph) {
   return data;
 }
 
+// A copy of the node showing its translated text, falling back to English like the game.
+export function translatedNode(n) {
+  const tr = n.tr || {};
+  return {
+    ...n,
+    text: tr.text || n.text, realText: tr.realText || n.realText, cut: tr.cut || n.cut, cutAfter: tr.cutAfter || n.cutAfter,
+    choices: (n.choices || []).map(c => ({ ...c, text: c.tr || c.text }))
+  };
+}
+
 // Same layout as the game's th.json files.
 export function formatTranslation(data) {
   return JSON.stringify(data, null, '\t') + '\n';
