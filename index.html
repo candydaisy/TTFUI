@@ -11,6 +11,12 @@
 <!-- TOOLBAR -->
 <div id="toolbar">
   <div class="logo">TTFUI</div>
+  <nav class="tool-tabs" aria-label="Tools">
+    <a href="index.html" aria-current="page">Flow Graph</a>
+    <a href="relations.html">Relationships</a>
+    <a href="voice.html" title="Generate voice lines with fish.audio">Voice</a>
+  </nav>
+  <div class="tb-sep"></div>
   <button class="tb-btn" data-action="addNode">+ Node</button>
   <button class="tb-btn success" id="play-btn" data-action="openPlaytest" title="Playtest Story (P)">▶ Play</button>
   <div class="tb-sep"></div>
@@ -27,8 +33,6 @@
     <div class="tb-menu-list">
       <button class="tb-btn" data-action="loadExample">Load example</button>
       <button class="tb-btn" data-action="openImport">Import JSON…</button>
-      <a class="tb-btn tb-link" href="relations.html" title="Edit Story/relationships.json">Relationships</a>
-      <a class="tb-btn tb-link" href="voice.html" title="Generate voice lines with fish.audio (needs npm start)">Voice</a>
       <div class="tb-menu-sep"></div>
       <button class="tb-btn danger-text" data-action="clearAll">Clear everything</button>
     </div>
