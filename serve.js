@@ -99,9 +99,9 @@ export function createServer({ root, gameDir, apiKey, fishUrl = 'https://api.fis
   async function api(req, res, parts) {
     const [, , what, route, file] = parts; // '', 'api', ...
     if (what === 'project' && req.method === 'GET') return sendJSON(res, 200, project());
-    if (what === 'tts' && req.method === 'POST') return send(res, 200, 'audio/mpeg', await tts(parseJSON(await readBody(req))));
+    if (what === 'tts' && req.method === 'POST') return send(res, 200, 'audio/mpeg', await tts(await jsonBody(req)));
     if (what === 'voices' && req.method === 'PUT') {
-      const casting = parseJSON(await readBody(req));
+      const casting = await jsonBody(req);
       if (!casting || typeof casting.voices !== 'object') throw new HttpError(400, 'Casting needs a "voices" object');
       fs.writeFileSync(path.join(storyDir(), 'voices.json'), JSON.stringify(casting, null, '\t') + '\n');
       return sendJSON(res, 200, { ok: true });
@@ -139,6 +139,10 @@ export function createServer({ root, gameDir, apiKey, fishUrl = 'https://api.fis
 
   return http.createServer(async (req, res) => {
     try {
+      // a page on another site that re-points its own name at 127.0.0.1 (DNS
+      // rebinding) still sends its own Host, so only local names get through
+      const host = (req.headers.host || '').replace(/:\d+$/, '');
+      if (!['localhost', '127.0.0.1', '[::1]'].includes(host)) throw new HttpError(403, 'Only localhost may use the helper');
       const rawPath = req.url.split('?')[0];
       // decode each segment on its own so an encoded "/" can't add a level
       const parts = rawPath.split('/').map(decodeURIComponent);
@@ -161,7 +165,11 @@ function sendJSON(res, status, data) {
   send(res, status, 'application/json; charset=utf-8', JSON.stringify(data));
 }
 
-function parseJSON(buf) {
+// Requiring a JSON content type makes browsers ask before sending a request
+// from another site (a plain text/plain POST would go through and spend credits).
+async function jsonBody(req) {
+  if (!/^application\/json\b/.test(req.headers['content-type'] || '')) throw new HttpError(415, 'Send JSON (Content-Type: application/json)');
+  const buf = await readBody(req);
   try { return JSON.parse(buf.toString('utf8')); } catch { throw new HttpError(400, 'Request body is not valid JSON'); }
 }
 

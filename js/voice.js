@@ -16,12 +16,15 @@ const v = {
   lines: [],              // voiceLines() of the route
   files: new Set(),       // saved voice file names in the route
   ticked: new Set(),      // line ids
-  takes: new Map(),       // 'id|lang' -> { blob, url } waiting for Keep
-  busy: new Set(),        // 'id|lang' being generated
+  takes: new Map(),       // 'route|id|lang' -> { blob, url } waiting for Keep
+  busy: new Set(),        // 'route|id|lang' being generated
   batch: null,            // { done, total } while Generate ticked runs
 };
 const player = new Audio();
-const slotKey = (id, lang) => `${id}|${lang}`;
+// every route has a "start" node, so takes are keyed by route too
+const slotKey = (route, id, lang) => `${route}|${id}|${lang}`;
+// batchSlots' pending set for the current route: 'id|lang'
+const pendingHere = () => new Set([...v.takes.keys()].filter(k => k.startsWith(v.route + '|')).map(k => k.slice(v.route.length + 1)));
 const casting = () => v.project.voices;
 const lineById = id => v.lines.find(l => l.id === id);
 const speakerName = s => s || 'Narrator';
@@ -74,17 +77,10 @@ async function load() {
 }
 
 function selectRoute(name) {
-  // takes cost credits, so don't drop them without asking
-  if (v.takes.size && !confirm(`Throw away ${v.takes.size} new take(s) you haven't kept?`)) {
-    document.getElementById('route-select').value = v.route;
-    return;
-  }
   const route = v.project.routes.find(r => r.name === name);
   v.route = name;
   document.getElementById('route-select').value = name;
   try { localStorage.setItem(ROUTE_KEY, name); } catch { /* storage blocked */ }
-  v.takes.forEach(t => URL.revokeObjectURL(t.url));
-  v.takes.clear();
   v.ticked.clear();
   v.lines = route ? voiceLines(route.graph, route.th) : [];
   v.files = new Set(route ? route.files : []);
@@ -96,7 +92,7 @@ function selectRoute(name) {
 // RENDER
 // ================================
 function slotHTML(line, lang) {
-  const k = slotKey(line.id, lang);
+  const k = slotKey(v.route, line.id, lang);
   const data = `data-id="${escapeHTML(line.id)}" data-lang="${lang}"`;
   const label = `<span class="vl-lang">${LANGS[lang]}</span>`;
   if (!casting().voices[line.speaker]) {
@@ -149,7 +145,7 @@ function renderToolbar() {
     genBtn.textContent = `Generating ${v.batch.done + 1}/${v.batch.total}…`;
     genBtn.disabled = true;
   } else {
-    const slots = batchSlots(v.lines, { ticked: v.ticked, voices: casting().voices, files: v.files, pending: v.takes });
+    const slots = batchSlots(v.lines, { ticked: v.ticked, voices: casting().voices, files: v.files, pending: pendingHere() });
     const chars = slots.reduce((n, s) => n + s.text.length, 0);
     genBtn.textContent = slots.length ? `Generate ticked (${slots.length} · ~${chars} chars)` : 'Generate ticked';
     genBtn.disabled = !slots.length;
@@ -173,13 +169,14 @@ function renderCasting() {
 // ================================
 // ACTIONS
 // ================================
-async function generate(id, lang, { autoplay = true } = {}) {
-  const line = lineById(id);
-  const k = slotKey(id, lang);
+// slot = { route, id, lang, speaker, text }, fixed when the take is asked for,
+// so switching route while it generates can't move it to another line
+async function generate(slot, { autoplay = true } = {}) {
+  const k = slotKey(slot.route, slot.id, slot.lang);
   v.busy.add(k);
   renderList();
   try {
-    const res = await api('POST', '/api/tts', { text: line[lang], voice: casting().voices[line.speaker], language: lang, model: casting().model });
+    const res = await api('POST', '/api/tts', { text: slot.text, voice: casting().voices[slot.speaker], language: slot.lang, model: casting().model });
     const blob = await res.blob();
     if (v.takes.has(k)) URL.revokeObjectURL(v.takes.get(k).url);
     v.takes.set(k, { blob, url: URL.createObjectURL(blob) });
@@ -193,32 +190,36 @@ async function generate(id, lang, { autoplay = true } = {}) {
   }
 }
 
-async function keep(id, lang) {
-  const take = v.takes.get(slotKey(id, lang));
+async function keep(route, id, lang) {
+  const k = slotKey(route, id, lang);
+  const take = v.takes.get(k);
   if (!take) return;
   const name = fileName(id, lang);
-  await api('PUT', `/api/voice/${encodeURIComponent(v.route)}/${name}`, take.blob);
-  v.files.add(name);
-  v.project.routes.find(r => r.name === v.route).files = [...v.files];
+  await api('PUT', `/api/voice/${encodeURIComponent(route)}/${name}`, take.blob);
+  const r = v.project.routes.find(x => x.name === route);
+  r.files = [...new Set([...r.files, name])];
+  if (route === v.route) v.files.add(name);
   URL.revokeObjectURL(take.url);
-  v.takes.delete(slotKey(id, lang));
+  v.takes.delete(k);
 }
 
 function discard(id, lang) {
-  const take = v.takes.get(slotKey(id, lang));
+  const k = slotKey(v.route, id, lang);
+  const take = v.takes.get(k);
   if (take) URL.revokeObjectURL(take.url);
-  v.takes.delete(slotKey(id, lang));
+  v.takes.delete(k);
   renderList();
 }
 
 async function genTicked() {
-  const slots = batchSlots(v.lines, { ticked: v.ticked, voices: casting().voices, files: v.files, pending: v.takes });
+  const route = v.route;
+  const slots = batchSlots(v.lines, { ticked: v.ticked, voices: casting().voices, files: v.files, pending: pendingHere() });
   v.batch = { done: 0, total: slots.length };
   let failed = 0;
   // one at a time so fish.audio isn't flooded
   for (const s of slots) {
     renderToolbar();
-    try { await generate(s.id, s.lang, { autoplay: false }); } catch { failed++; }
+    try { await generate({ ...s, route }, { autoplay: false }); } catch { failed++; }
     v.batch.done++;
   }
   v.batch = null;
@@ -230,8 +231,8 @@ async function keepAll() {
   const keys = [...v.takes.keys()];
   try {
     for (const k of keys) {
-      const [id, lang] = k.split('|');
-      await keep(id, lang);
+      const [route, id, lang] = k.split('|');
+      await keep(route, id, lang);
     }
     showToast(`Saved ${keys.length} voice files`);
   } catch (err) {
@@ -258,11 +259,15 @@ async function tryVoice(speaker) {
 }
 
 const ACTIONS = {
-  generate: el => generate(el.dataset.id, el.dataset.lang).catch(() => {}),
-  playTake: el => play(v.takes.get(slotKey(el.dataset.id, el.dataset.lang)).url),
+  generate: el => {
+    const line = lineById(el.dataset.id);
+    const lang = el.dataset.lang;
+    generate({ route: v.route, id: line.id, lang, speaker: line.speaker, text: line[lang] }).catch(() => {});
+  },
+  playTake: el => play(v.takes.get(slotKey(v.route, el.dataset.id, el.dataset.lang)).url),
   // the query defeats the browser cache after a Redo + Keep replaced the file
   playSaved: el => play(`/api/voice/${encodeURIComponent(v.route)}/${fileName(el.dataset.id, el.dataset.lang)}?t=${Date.now()}`),
-  keep: el => keep(el.dataset.id, el.dataset.lang)
+  keep: el => keep(v.route, el.dataset.id, el.dataset.lang)
     .then(() => showToast(`Saved ${v.route}/${fileName(el.dataset.id, el.dataset.lang)}`), err => showToast(err.message))
     .then(renderList),
   discard: el => discard(el.dataset.id, el.dataset.lang),

@@ -14,9 +14,11 @@ let game, fish, app, noKey, lastFish;
 const listen = server => new Promise(res => server.listen(0, '127.0.0.1', () => res(server.address().port)));
 
 // Raw request so paths like /%2e%2e/ reach the server unnormalized.
-function request(port, method, urlPath, body) {
+// Objects and strings go as JSON unless headers say otherwise.
+function request(port, method, urlPath, body, headers = {}) {
+  if (body !== undefined && !Buffer.isBuffer(body)) headers = { 'Content-Type': 'application/json', ...headers };
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, method, path: urlPath }, res => {
+    const req = http.request({ host: '127.0.0.1', port, method, path: urlPath, headers }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
@@ -29,7 +31,7 @@ function request(port, method, urlPath, body) {
     req.end();
   });
 }
-const call = (method, urlPath, body) => request(app.address().port, method, urlPath, body);
+const call = (method, urlPath, body, headers) => request(app.address().port, method, urlPath, body, headers);
 const voiceFile = name => path.join(game, 'Assets/audio/voice/Kay', name);
 
 before(async () => {
@@ -156,4 +158,16 @@ test('without a game folder the API says how to fix it', async () => {
   lost.close();
   assert.equal(res.status, 500);
   assert.match(JSON.parse(res.text).error, /Game folder not found/);
+});
+
+test('other websites cannot spend credits: JSON endpoints need a JSON content type', async () => {
+  // a cross-site form or text/plain fetch is sent without asking the server first
+  const res = await call('POST', '/api/tts', JSON.stringify({ text: 'Hi', voice: 'v1', language: 'en' }), { 'Content-Type': 'text/plain' });
+  assert.equal(res.status, 415);
+  assert.equal((await call('PUT', '/api/voices', JSON.stringify({ voices: {} }), { 'Content-Type': 'text/plain' })).status, 415);
+});
+
+test('requests for another host name are refused (DNS rebinding)', async () => {
+  assert.equal((await call('GET', '/api/project', undefined, { Host: 'evil.example:8000' })).status, 403);
+  assert.equal((await call('GET', '/api/project', undefined, { Host: 'localhost:8000' })).status, 200);
 });
