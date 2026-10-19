@@ -160,6 +160,34 @@ test('without a game folder the API says how to fix it', async () => {
   assert.match(JSON.parse(res.text).error, /Game folder not found/);
 });
 
+test('the page can point the helper at a game folder anywhere (X-Game-Dir)', async () => {
+  // a Thai folder name: the header carries it URI-encoded
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'เกม-'));
+  fs.mkdirSync(path.join(other, 'Story/Ulyn'), { recursive: true });
+  fs.writeFileSync(path.join(other, 'Story/Ulyn/flow_graph.json'), JSON.stringify({ a: { text: 'Hey' } }));
+  const lost = createServer({ root: ROOT, gameDir: '', apiKey: KEY });
+  const port = await listen(lost);
+  const headers = { 'X-Game-Dir': encodeURIComponent(other) };
+  try {
+    const project = JSON.parse((await request(port, 'GET', '/api/project', undefined, headers)).text);
+    assert.equal(project.gameDir, other);
+    assert.deepEqual(project.routes.map(r => r.name), ['Ulyn']);
+    assert.equal((await request(port, 'PUT', '/api/voice/Ulyn/a.mp3', Buffer.from('ID3'), headers)).status, 200);
+    assert.ok(fs.existsSync(path.join(other, 'Assets/audio/voice/Ulyn/a.mp3')));
+    // the header wins over the folder the helper found itself
+    assert.deepEqual(JSON.parse((await call('GET', '/api/project', undefined, headers)).text).routes.map(r => r.name), ['Ulyn']);
+
+    const relative = await request(port, 'GET', '/api/project', undefined, { 'X-Game-Dir': 'Games/UntitledIllness' });
+    assert.equal(relative.status, 400);
+    const nowhere = await request(port, 'GET', '/api/project', undefined, { 'X-Game-Dir': encodeURIComponent(path.join(other, 'nope')) });
+    assert.equal(nowhere.status, 500);
+    assert.match(JSON.parse(nowhere.text).error, /Game folder not found.*nope/);
+  } finally {
+    lost.close();
+    fs.rmSync(other, { recursive: true, force: true });
+  }
+});
+
 test('other websites cannot spend credits: JSON endpoints need a JSON content type', async () => {
   // a cross-site form or text/plain fetch is sent without asking the server first
   const res = await call('POST', '/api/tts', JSON.stringify({ text: 'Hi', voice: 'v1', language: 'en' }), { 'Content-Type': 'text/plain' });

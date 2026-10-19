@@ -12,6 +12,7 @@ import { folderApi } from './voice-folder.js';
 const ROUTE_KEY = 'ttfui_voice_route';
 const FISH_KEY = 'ttfui_fish_key';
 const RELAY_KEY = 'ttfui_fish_relay';
+const GAME_DIR_KEY = 'ttfui_game_dir';
 const LANGS = { en: 'EN', th: 'TH' };
 
 const v = {
@@ -37,10 +38,16 @@ const relayInput = document.getElementById('relay-input');
 
 // who answers /api: the helper, until a game folder is opened in the browser
 let inBrowser = false;
+// game folder path for the helper; empty = the one it found itself
+let gameDir = '';
+try { gameDir = localStorage.getItem(GAME_DIR_KEY) || ''; } catch { /* storage blocked */ }
 let request = (method, url, body) => fetch(url, {
   method,
   body: body instanceof Blob || body === undefined ? body : JSON.stringify(body),
-  headers: body instanceof Blob || body === undefined ? {} : { 'Content-Type': 'application/json' },
+  headers: {
+    ...(body instanceof Blob || body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    ...(gameDir ? { 'X-Game-Dir': encodeURIComponent(gameDir) } : {}),
+  },
 });
 
 // throws the { error } message on failure
@@ -66,7 +73,8 @@ async function load() {
   try {
     v.project = await (await api('GET', '/api/project')).json();
   } catch (err) {
-    showSetup(true);
+    // the helper answered but has no game folder: ask for its path
+    showSetup(true, !inBrowser && /^Game folder not found/.test(err.message));
     // a plain static host has no /api, so its 404 page isn't worth showing
     document.getElementById('no-helper-detail').textContent = /^404\b/.test(err.message) ? '' : err.message;
     return;
@@ -82,7 +90,11 @@ async function load() {
   document.getElementById('model-select').value = casting().model || 's2.1-pro';
 }
 
-function showSetup(on) {
+function showSetup(on, askGameDir = false) {
+  document.getElementById('game-dir-row').hidden = !askGameDir;
+  document.getElementById('setup-web').hidden = askGameDir;
+  document.getElementById('helper-settings').hidden = inBrowser;
+  if (v.project) document.getElementById('game-dir-label').textContent = v.project.gameDir;
   document.getElementById('main').hidden = on;
   document.getElementById('no-helper').hidden = !on;
   document.querySelectorAll('#route-select, #filter-select, #search-input, #gen-ticked-btn').forEach(el => { el.hidden = on; });
@@ -98,6 +110,21 @@ async function openFolder() {
   inBrowser = true;
   request = folderApi(game, () => ({ key: keyInput.value.trim(), relay: relayInput.value.trim() }));
   load();
+}
+
+function useGameDir() {
+  // pasted paths often come quoted ("Copy as path" on Windows)
+  gameDir = document.getElementById('game-dir-input').value.trim().replace(/^(['"])(.*)\1$/, '$2');
+  try { if (gameDir) localStorage.setItem(GAME_DIR_KEY, gameDir); else localStorage.removeItem(GAME_DIR_KEY); } catch { /* storage blocked */ }
+  load();
+}
+
+function changeGameDir() {
+  // new takes belong to this game; another game may have the same route and line
+  if (v.takes.size) { showToast('Keep or discard the new takes first'); return; }
+  document.getElementById('game-dir-input').value = gameDir || v.project.gameDir;
+  document.getElementById('no-helper-detail').textContent = '';
+  showSetup(true, true);
 }
 
 function renderKeyStatus() {
@@ -307,6 +334,8 @@ const ACTIONS = {
   keepAll: () => keepAll(),
   tryVoice: el => tryVoice(el.dataset.speaker),
   openFolder: () => openFolder(),
+  useGameDir: () => useGameDir(),
+  changeGameDir: () => changeGameDir(),
 };
 
 document.addEventListener('click', e => {
@@ -347,6 +376,7 @@ for (const [input, storeKey] of [[keyInput, FISH_KEY], [relayInput, RELAY_KEY]])
     renderKeyStatus();
   });
 }
+document.getElementById('game-dir-input').addEventListener('keydown', e => { if (e.key === 'Enter') useGameDir(); });
 window.addEventListener('beforeunload', e => { if (v.takes.size) e.preventDefault(); });
 document.getElementById('filter-select').addEventListener('change', renderList);
 document.getElementById('search-input').addEventListener('input', renderList);

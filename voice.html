@@ -38,6 +38,13 @@
   <div id="sidebar">
     <div id="sidebar-header">Casting</div>
     <div id="sidebar-content">
+      <div id="helper-settings" class="field-group" hidden>
+        <div class="field-label">Game folder</div>
+        <div class="vl-cast-row">
+          <span id="game-dir-label" class="vl-path"></span>
+          <button class="tb-btn" data-action="changeGameDir" title="Use a game folder somewhere else">Change…</button>
+        </div>
+      </div>
       <div id="browser-settings" hidden>
         <div class="field-group">
           <div class="field-label">fish.audio key</div>
@@ -68,13 +75,23 @@
 <!-- WITHOUT THE HELPER (GitHub Pages or a plain file) -->
 <div id="no-helper" class="dialog-msg" hidden>
   <div>
-    <strong>Open your game folder to start.</strong>
-    <p>Works in Chrome or Edge. Then paste your fish.audio key and relay URL under Casting.
-      The relay is free and set up once: <a href="https://github.com/candydaisy/TTFUI#voice-over-on-the-website" target="_blank" rel="noopener">how to make one</a>.</p>
-    <button class="tb-btn success" id="open-folder-btn" data-action="openFolder">Open game folder…</button>
-    <p id="no-picker" class="vl-warn" hidden>This browser can't open folders. Use Chrome or Edge, or the way below.</p>
-    <p class="field-hint">Or on your computer: run <code>npm start</code> in the TTFUI folder and open <code>localhost:8000/voice.html</code>,
-      with <code>FISH_API_KEY=...</code> in <code>.TTFUI/.env</code>.</p>
+    <div id="game-dir-row" hidden>
+      <strong>Where is the game?</strong>
+      <p>Paste the full path of the game folder, the one with <code>project.godot</code> and <code>Story/</code> in it. Leave it empty to use the folder <code>npm start</code> found.</p>
+      <div class="vl-cast-row">
+        <input class="field-input mono" id="game-dir-input" placeholder="/home/you/UntitledIllness" autocomplete="off" spellcheck="false">
+        <button class="tb-btn success" data-action="useGameDir">Use folder</button>
+      </div>
+    </div>
+    <div id="setup-web">
+      <strong>Open your game folder to start.</strong>
+      <p>Works in Chrome or Edge. Pick the folder with <code>project.godot</code> in it. Then paste your fish.audio key and relay URL under Casting.
+        The relay is free and set up once: <a href="https://github.com/candydaisy/TTFUI#voice-over-on-the-website" target="_blank" rel="noopener">how to make one</a>.</p>
+      <button class="tb-btn success" id="open-folder-btn" data-action="openFolder">Open game folder…</button>
+      <p id="no-picker" class="vl-warn" hidden>This browser can't open folders. Use Chrome or Edge, or the way below.</p>
+      <p class="field-hint">Or on your computer: run <code>npm start</code> in the TTFUI folder and open <code>localhost:8000/voice.html</code>,
+        with <code>FISH_API_KEY=...</code> in <code>.TTFUI/.env</code>.</p>
+    </div>
     <div id="no-helper-detail" class="vl-warn"></div>
   </div>
 </div>

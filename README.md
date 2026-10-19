@@ -128,7 +128,7 @@ The **Voice** tab (`voice.html`) generates voice lines with [fish.audio](https:/
 
 With the local helper:
 
-1. Keep this folder inside the game folder (as `.TTFUI/`), or set `GAME_DIR=/path/to/UntitledIllness`.
+1. Keep this folder inside the game folder (as `.TTFUI/`) and the helper finds the game itself. Anywhere else, the Voice page asks for the game folder's full path (the folder with `project.godot` in it) and remembers it; change it later under *Casting → Game folder*. `GAME_DIR=/path/to/UntitledIllness npm start` also works.
 2. Create `.TTFUI/.env` with your key (it is git-ignored and never sent to the page):
    ```
    FISH_API_KEY=your-key-here

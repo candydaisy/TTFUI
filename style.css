@@ -1216,6 +1216,7 @@
 .vl-empty { padding: 24px; color: var(--text-dim); font-size: 13px; text-align: center; }
 .vl-cast-row { display: flex; gap: 6px; }
 .vl-cast-row .field-input { flex: 1; min-width: 0; }
+.vl-path { flex: 1; min-width: 0; align-self: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
 #search-input { width: 200px; }
 #casting-list { margin: 12px 0; }
 #no-helper { max-width: 560px; margin: 48px auto; font-size: 13px; }
