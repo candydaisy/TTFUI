@@ -24,6 +24,10 @@ An intuitive, browser-based visual flow graph editor and interactive narrative d
   - **Scene and Audio Directing:** Set background scenery, character stage enter/exit cues, sound effects (`SFX`), and ambient loops (`Amb`).
   - **Story Flags and Weights:** Track narrative state using custom story flags and numeric story weights (e.g., sanity, relationship meters).
 
+- **Game Stories (local)**
+  - Run with `npm start` inside the game folder and the toolbar gets a **Game story** menu: pick Kay, Elysia or Ulyn to open that story (with its Thai) straight from the game, no Import needed. An empty editor opens the first story by itself; unsaved edits are kept until you pick one.
+  - Nodes that already have a saved voice file show a green **voiced** tag. The Voice page shows the same: a count of voiced lines and a green edge on each voiced row.
+
 - **Character Presets**
   - Define your cast once with a name, a speaker color, and the emotions each character can use.
   - The Speaker field suggests character names, and the Emotion menu shows that character's emotions.

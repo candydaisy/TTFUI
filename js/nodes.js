@@ -199,6 +199,8 @@ export function clearAll() {
   state.nodes = {};
   state.connections = [];
   state.characters = [];
+  state.gameRoute = '';
+  state.voiceFiles = new Set();
   setSelection([]);
   state.nextId = 1;
   rebuildNodeElements();

@@ -661,6 +661,7 @@ function buildNodeHTML(id) {
 
   const timedBadge = n.timed ? `<span class="tag tag-timed">timed</span>` : '';
   const editBadge = n.realText ? `<span class="tag tag-timed">self-edit</span>` : '';
+  const voicedBadge = state.voiceFiles.has(n.id + '.mp3') ? `<span class="tag tag-voiced" title="Has a saved voice file">voiced</span>` : '';
   const notices = noticesIn(n.text);
   const extraBadges = [
     n.call && `call: ${n.call}`,
@@ -670,8 +671,8 @@ function buildNodeHTML(id) {
     n.cut && 'cut-off',
     notices.length && `notice: ${notices.map(d => d.flag).join(', ')}`,
   ].filter(Boolean).map(t => `<span class="tag tag-timed">${escapeHTML(t)}</span>`).join('');
-  const tagsHTML = (secretBadge || choicesBadge || timedBadge || editBadge || extraBadges)
-    ? `<div class="node-tags" style="margin-top:5px;">${secretBadge}${choicesBadge}${timedBadge}${editBadge}${extraBadges}</div>`
+  const tagsHTML = (secretBadge || choicesBadge || timedBadge || editBadge || voicedBadge || extraBadges)
+    ? `<div class="node-tags" style="margin-top:5px;">${voicedBadge}${secretBadge}${choicesBadge}${timedBadge}${editBadge}${extraBadges}</div>`
     : '';
 
   return `

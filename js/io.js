@@ -149,8 +149,8 @@ export function markDirty() {
 
 function saveToStorage() {
   try {
-    const { nodes, connections, characters, mode, pan, zoom, nextId } = state;
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, mode, pan, zoom, nextId, savedAt: Date.now() }));
+    const { nodes, connections, characters, mode, pan, zoom, nextId, gameRoute } = state;
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ nodes, connections, characters, mode, pan, zoom, nextId, gameRoute, savedAt: Date.now() }));
     setSaveStatus('saved', 'saved');
   } catch (e) {
     setSaveStatus('error', 'save failed');
@@ -171,6 +171,7 @@ export function loadFromStorage() {
     state.pan = data.pan || { x: 60, y: 60 };
     state.zoom = data.zoom || 1;
     state.nextId = data.nextId || 1;
+    state.gameRoute = data.gameRoute || '';
     setSelection([]);
 
     clearHistory();
@@ -256,14 +257,24 @@ export function runImport() {
     return;
   }
 
+  replaceStory(parsed);
+  showToast(`Imported as ${MODES[state.mode].label}`);
+  closeImport();
+}
+
+// Puts a parsed story (and its translation) in the editor, as one undo step.
+// gameRoute and voiceFiles say which game story it is (Game story menu).
+function replaceStory(parsed, { th = null, gameRoute = '', voiceFiles = [] } = {}) {
   pushHistory();
   state.nodes = parsed.nodes;
   state.nextId = parsed.nextId;
   setMode(parsed.mode);
-  showToast(`Imported as ${MODES[state.mode].label}`);
   state.connections = buildConnections(state.nodes);
   // the export format has no character data, so pick up any new speakers
   state.characters = detectCharacters(state.nodes, state.characters);
+  state.gameRoute = gameRoute;
+  state.voiceFiles = new Set(voiceFiles);
+  const problems = th ? applyTranslation(state.nodes, th) : [];
   setSelection([]);
 
   rebuildNodeElements();
@@ -271,8 +282,15 @@ export function runImport() {
   applyLayout();
   renderSidebar();
   updateEmptyHint();
-  closeImport();
   markDirty();
+  return problems;
+}
+
+// A story straight from the game folder: { name, graph, th, files } from /api/project.
+export function loadGameStory(route) {
+  const problems = replaceStory(parseFlowGraph(JSON.stringify(route.graph)),
+    { th: route.th, gameRoute: route.name, voiceFiles: route.files });
+  showToast(`Loaded ${route.name} from the game${problems.length ? ` (${problems.length} translation problem(s), see Diagnostics)` : ''}`);
 }
 
 // A translation goes onto the nodes already loaded, so import the story first.
@@ -360,6 +378,8 @@ function applyShareData(data) {
   state.characters = normalizeCharacters(data.characters);
   setMode(data.mode);
   state.nextId = data.nextId || 1;
+  state.gameRoute = '';
+  state.voiceFiles = new Set();
   setSelection([]);
   rebuildNodeElements();
   updateSelectionVisuals();

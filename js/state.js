@@ -14,6 +14,8 @@ export const state = {
   clipboard: null, // { nodes: [...], connections: [...] }
   characters: [], // character presets: { name, color, emotions }
   mode: 'kay', // character mode (see MODES in graph.js): decides meters, choice types, extra fields
+  gameRoute: '', // the game story this came from (Game story menu), '' for anything else
+  voiceFiles: new Set(), // that route's saved voice files ('<id>.mp3'), for the voiced tag
 };
 
 export function genId() {

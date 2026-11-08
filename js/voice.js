@@ -33,6 +33,7 @@ const pendingHere = () => new Set([...v.takes.keys()].filter(k => k.startsWith(v
 const casting = () => v.project.voices;
 const lineById = id => v.lines.find(l => l.id === id);
 const speakerName = s => s || 'Narrator';
+const isVoiced = l => v.files.has(fileName(l.id, 'en')) || v.files.has(fileName(l.id, 'th'));
 const keyInput = document.getElementById('key-input');
 const relayInput = document.getElementById('relay-input');
 
@@ -97,7 +98,7 @@ function showSetup(on, askGameDir = false) {
   if (v.project) document.getElementById('game-dir-label').textContent = v.project.gameDir;
   document.getElementById('main').hidden = on;
   document.getElementById('no-helper').hidden = !on;
-  document.querySelectorAll('#route-select, #filter-select, #search-input, #gen-ticked-btn').forEach(el => { el.hidden = on; });
+  document.querySelectorAll('#route-select, #filter-select, #search-input, #gen-ticked-btn, #voiced-count').forEach(el => { el.hidden = on; });
   document.getElementById('browser-settings').hidden = !inBrowser;
   const canPick = 'showDirectoryPicker' in window;
   document.getElementById('open-folder-btn').hidden = !canPick;
@@ -176,8 +177,7 @@ function slotHTML(line, lang) {
 function visibleLines() {
   const filter = document.getElementById('filter-select').value;
   const q = document.getElementById('search-input').value.trim().toLowerCase();
-  const voiced = l => v.files.has(fileName(l.id, 'en')) || v.files.has(fileName(l.id, 'th'));
-  const byFilter = l => filter === 'all' || (filter === 'ticked' ? v.ticked.has(l.id) : (filter === 'voiced') === voiced(l));
+  const byFilter = l => filter === 'all' || (filter === 'ticked' ? v.ticked.has(l.id) : (filter === 'voiced') === isVoiced(l));
   return v.lines.filter(l => byFilter(l) && (!q || [l.id, l.speaker, l.en, l.th].some(s => s.toLowerCase().includes(q))));
 }
 
@@ -185,7 +185,7 @@ function renderList() {
   const list = document.getElementById('voice-list');
   const lines = visibleLines();
   list.innerHTML = lines.length ? lines.map(l => `
-    <div class="vl-row${v.ticked.has(l.id) ? ' ticked' : ''}">
+    <div class="vl-row${v.ticked.has(l.id) ? ' ticked' : ''}${isVoiced(l) ? ' voiced' : ''}">
       <input type="checkbox" class="vl-tick" data-id="${escapeHTML(l.id)}" ${v.ticked.has(l.id) ? 'checked' : ''} aria-label="Tick line ${escapeHTML(l.id)}">
       <span class="vl-id">${escapeHTML(l.id)}</span>
       <span class="vl-speaker">${escapeHTML(speakerName(l.speaker))}</span>
@@ -209,6 +209,8 @@ function renderToolbar() {
     genBtn.textContent = slots.length ? `Generate ticked (${slots.length} · ~${chars} chars)` : 'Generate ticked';
     genBtn.disabled = !slots.length;
   }
+  const spoken = v.lines.filter(l => l.speaker);
+  document.getElementById('voiced-count').textContent = `● ${spoken.filter(isVoiced).length} / ${spoken.length} spoken lines voiced`;
   const keepAll = document.getElementById('keep-all-btn');
   keepAll.hidden = !v.takes.size;
   keepAll.textContent = `Keep all new takes (${v.takes.size})`;

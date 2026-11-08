@@ -29,6 +29,7 @@ import {
   openImport, closeImport, pickImportFile, clearImportFile, runImport,
   openShareModal, closeShareModal, copyShareUrl, copyShareCode, loadShareCode, loadShareFromURL
 } from './io.js';
+import { setupGameStory } from './game-story.js';
 
 // ================================
 // ACTIONS
@@ -241,3 +242,4 @@ if (!loadFromStorage()) updateEmptyHint();
 runDiagnostics();
 updateUndoRedoUI();
 loadShareFromURL();
+setupGameStory();

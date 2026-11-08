@@ -96,6 +96,7 @@
   #pt-timer { height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 8px; overflow: hidden; }
   #pt-timer > div { height: 100%; width: 100%; background: var(--warning); }
   .tag-timed { background: rgba(240,178,50,0.15); color: var(--warning); }
+  .tag-voiced { background: rgba(59,165,93,0.15); color: var(--success); }
   .node-choice-delta { font-size: 10px; font-family: var(--font-mono); }
   .node-choice-delta.bad { color: var(--danger); }
   .node-choice-delta.good { color: var(--success); }
@@ -1189,6 +1190,9 @@
   font-size: 13px;
 }
 .vl-row.ticked { background: rgba(88,101,242,0.08); }
+.vl-row.voiced { box-shadow: inset 3px 0 0 var(--success); }
+.vl-row.voiced .vl-id { color: var(--success); }
+#voiced-count { color: var(--success); }
 .vl-tick { margin-top: 3px; accent-color: var(--accent); }
 .vl-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); padding-top: 2px; overflow-wrap: anywhere; }
 .vl-speaker { font-weight: 600; color: var(--accent-light); overflow-wrap: anywhere; }
