@@ -28,11 +28,11 @@ export function speakersOf(lines) {
 }
 
 // What "Generate ticked" makes: [{ id, lang, speaker, text }] for ticked lines
-// whose speaker has a voice, in each language with text, skipping slots that
-// are already voiced (Redo is per line) or have a take waiting.
+// whose speaker has a voice, in English only (the game plays it for Thai too),
+// skipping slots that are already voiced (Redo is per line) or have a take waiting.
 // pending holds 'id|lang' keys.
 export function batchSlots(lines, { ticked, voices, files, pending }) {
-  return lines.flatMap(l => !ticked.has(l.id) || !voices[l.speaker] ? [] : ['en', 'th']
+  return lines.flatMap(l => !ticked.has(l.id) || !voices[l.speaker] ? [] : ['en']
     .filter(lang => l[lang] && !files.has(fileName(l.id, lang)) && !pending.has(`${l.id}|${lang}`))
     .map(lang => ({ id: l.id, lang, speaker: l.speaker, text: l[lang] })));
 }

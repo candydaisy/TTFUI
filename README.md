@@ -148,7 +148,7 @@ On [the website](https://candydaisy.github.io/TTFUI/voice.html) the Voice tab re
 
 The relay only accepts speech requests from this site (`SITES` at the top of `relay/worker.js`; a fork on another account adds its own) and stores nothing: the key is sent with each request. The key is saved in this browser's storage for the site, so don't do this on a shared computer. The folder has to be opened again after reloading the page.
 
-Kept files go to `Assets/audio/voice/<Route>/<nodeId>.mp3` (English) and `<nodeId>_th.mp3` (Thai). The game plays the file for the current language when the line shows, and stays silent when there is none. A node's `voice` key still overrides the name (`"voice": "kay_wake_3"` plays `Assets/audio/voice/kay_wake_3.mp3`). Open the Godot editor once after adding files so it imports them.
+Kept files go to `Assets/audio/voice/<Route>/<nodeId>.mp3`. Voice is English only: the tool makes English takes, and the game plays the English file in Thai too. It stays silent when there is none. A node's `voice` key still overrides the name (`"voice": "kay_wake_3"` plays `Assets/audio/voice/kay_wake_3.mp3`). Open the Godot editor once after adding files so it imports them.
 
 ### Run Tests
 The graph logic (export/import round-trips, character modes, diagnostics, playtest rules, layout, share codes) and the relationship web logic have unit tests that run on Node.js 18+ with no dependencies:

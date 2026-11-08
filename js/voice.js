@@ -193,7 +193,7 @@ function renderList() {
         <div>${escapeHTML(l.en)}</div>
         ${l.th ? `<div class="vl-th">${escapeHTML(l.th)}</div>` : ''}
       </div>
-      <div class="vl-slots">${slotHTML(l, 'en')}${l.th ? slotHTML(l, 'th') : ''}</div>
+      <div class="vl-slots">${slotHTML(l, 'en')}</div>
     </div>`).join('') : `<p class="vl-empty">No lines match.</p>`;
   renderToolbar();
 }

@@ -24,7 +24,7 @@ test('speakersOf lists each speaker once, narrator as an empty string', () => {
   assert.deepEqual(speakersOf(voiceLines(GRAPH, null)), ['K', '']);
 });
 
-test('batchSlots picks ticked, cast, unvoiced slots that have text, without pending takes', () => {
+test('batchSlots picks ticked, cast, unvoiced English slots, without pending takes', () => {
   const lines = [
     { id: 'a', speaker: 'K', en: 'Hi', th: 'สวัสดี' },
     { id: 'b', speaker: 'F', en: 'Yo', th: '' },
@@ -34,9 +34,9 @@ test('batchSlots picks ticked, cast, unvoiced slots that have text, without pend
   const slots = batchSlots(lines, {
     ticked: new Set(['a', 'b', 'c', 'd']),
     voices: { K: 'k1', '': 'n1' },          // F is not cast
-    files: new Set(['a.mp3']),               // a's English is already voiced
-    pending: new Set(['c|th']),              // c's Thai has a take waiting
+    files: new Set(['a.mp3']),               // a is already voiced
+    pending: new Set(['c|en']),              // c has a take waiting
   });
-  assert.deepEqual(slots.map(s => `${s.id}|${s.lang}`), ['a|th', 'c|en', 'd|en']);
-  assert.equal(slots.reduce((n, s) => n + s.text.length, 0), 'สวัสดี'.length + 3 + 5);
+  assert.deepEqual(slots.map(s => `${s.id}|${s.lang}`), ['d|en']); // never Thai: the game plays English for it
+  assert.equal(slots.reduce((n, s) => n + s.text.length, 0), 5);
 });
